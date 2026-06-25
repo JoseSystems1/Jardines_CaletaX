@@ -1,5 +1,5 @@
 /* =================================================================
-   JARDINES DE CALETA X — hoja de estilos
+   JARDINES DE CALETA — hoja de estilos
    Paleta: azul "plano náutico" + blanco papel.
    Tipografía: Space Grotesk (display) / Inter (texto) / IBM Plex Mono (datos)
    ================================================================= */
@@ -121,6 +121,31 @@ body.is-admin .admin-only{ display: inline-flex; }
 #btnAdminToggle:hover{ background: rgba(255,255,255,.18); }
 #btnAdminToggle.is-admin{ background: var(--blue-500); border-color: var(--blue-500); }
 
+/* ---------- PESTAÑAS DE PROYECTO ---------- */
+.project-tabs{
+  display:flex; gap:0;
+  background: var(--blue-700);
+  padding: 0 24px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  overflow-x:auto;
+  -webkit-overflow-scrolling: touch;
+}
+.project-tab{
+  position:relative;
+  display:flex; flex-direction:column; align-items:flex-start; gap:1px;
+  background: transparent; border:none; cursor:pointer;
+  padding: 11px 20px 12px;
+  color:#9DBADB; white-space:nowrap;
+  border-bottom: 3px solid transparent;
+  transition: color .15s, background .15s;
+}
+.project-tab:hover{ color:#DCEBF8; background: rgba(255,255,255,.05); }
+.project-tab__name{ font-family: var(--f-display); font-size:14.5px; font-weight:600; }
+.project-tab__meta{ font-family: var(--f-mono); font-size:10.5px; color:#6F90B5; }
+.project-tab.is-active{ color:#fff; background: var(--sky-50); border-bottom-color: var(--sky-50); }
+.project-tab.is-active .project-tab__name{ color: var(--blue-700); }
+.project-tab.is-active .project-tab__meta{ color: var(--blue-600); }
+
 /* ---------- TOOLBAR ---------- */
 .toolbar{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -200,7 +225,7 @@ body.is-admin .admin-only{ display: inline-flex; }
 .map-viewport{
   position:relative;
   width:100%;
-  aspect-ratio: 10960 / 6476; /* proporción real del plano en alta resolución; ver IMG_W/IMG_H en script.js si se reemplaza la imagen */
+  aspect-ratio: 10960 / 6476; /* proporción inicial; script.js la ajusta por proyecto */
   overflow:hidden;
   background:
     linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/24px 24px,
@@ -240,6 +265,7 @@ body.map-fullscreen-active{ overflow: hidden; }
   cursor:pointer;
   border:2px solid #fff;
   box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  pointer-events:auto; touch-action:none;
 }
 .marker--reservado{ background: var(--reserved); }
 .marker--vendido{ background: var(--sold); }
@@ -318,6 +344,12 @@ body.map-fullscreen-active{ overflow: hidden; }
   padding: 16px 18px; border-bottom:1px solid var(--line);
 }
 .admin-panel__head h2{ font-size:16px; }
+.admin-panel__projecttag{
+  padding: 10px 18px; font-size:12px; font-weight:600;
+  color: var(--blue-700); background: var(--blue-100);
+  border-bottom:1px solid var(--line-soft);
+  font-family: var(--f-mono);
+}
 .admin-panel__search{ display:flex; gap:8px; padding: 12px 18px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap; }
 .admin-panel__search input, .admin-panel__search select{
   font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:7px; background:var(--sky-50);
@@ -339,6 +371,10 @@ body.map-fullscreen-active{ overflow: hidden; }
 .pin-btn{ font-size:11.5px; padding:7px 8px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; color: var(--blue-700); min-height: 34px; }
 .pin-btn:hover{ background: var(--blue-100); }
 .pin-btn.has-pin{ background: var(--available-bg); border-color: var(--available); color: var(--available); }
+
+.price-btn{ font-size:11.5px; padding:7px 8px; border-radius:6px; border:1px dashed var(--line); background:#fff; cursor:pointer; color:#8499AE; min-height:34px; white-space:nowrap; font-family: var(--f-mono); }
+.price-btn:hover{ background: var(--blue-100); color: var(--blue-700); }
+.price-btn.has-price{ background:#fff; border-style:solid; border-color: var(--blue-500); color: var(--blue-700); font-weight:600; }
 
 .admin-panel__foot{ display:flex; gap:8px; justify-content:space-between; padding: 12px 18px; border-top:1px solid var(--line); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 
@@ -377,6 +413,15 @@ body.map-fullscreen-active{ overflow: hidden; }
 
 .field-label{ display:block; font-size:12px; font-weight:600; color:#4A6A8A; margin: 14px 0 5px; }
 #lotModalNote{ width:100%; }
+
+/* precio en la lista de reservas */
+.lot-row__price{ font-size:12.5px; font-weight:700; color: var(--blue-700); font-family: var(--f-mono); margin-top:2px; }
+
+/* campo de precio (moneda + monto) en el modal admin */
+.price-field{ display:flex; gap:8px; }
+.price-field__currency{ flex:0 0 78px; width:78px !important; }
+.price-field__amount{ flex:1 1 auto; }
+.lot-detail-grid dd#lotModalPrice{ color: var(--blue-700); }
 
 /* ---------- TOAST ---------- */
 .toast{
@@ -417,6 +462,11 @@ body.map-fullscreen-active{ overflow: hidden; }
   .stat__label{ font-size: 9px; }
   .titleblock__actions{ width:100%; order:2; }
   #btnAdminToggle{ width:100%; justify-content:center; }
+
+  /* Pestañas: a ancho completo, repartidas */
+  .project-tabs{ padding: 0 10px; }
+  .project-tab{ flex:1; align-items:center; padding: 9px 12px 10px; }
+  .project-tab__name{ font-size: 13px; }
 
   /* Toolbar: todo se apila, controles a ancho completo y táctiles */
   .toolbar{ padding: 10px 14px; gap: 10px; }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>Jardines de Caleta X · Plano de solares</title>
+<title>Jardines de Caleta · Planos de solares</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -22,14 +22,14 @@
       </svg>
     </div>
     <div class="titleblock__text">
-      <h1>Urbanización Jardines de Caleta&nbsp;X</h1>
-      <p>La Romana, República Dominicana — Plano general de distribución de solares</p>
+      <h1 id="projectTitle">Urbanización Jardines de Caleta&nbsp;X</h1>
+      <p id="projectSubtitle">La Romana, República Dominicana — Plano general de distribución de solares</p>
     </div>
   </div>
 
   <div class="titleblock__stats" id="statsRow" aria-label="Resumen de disponibilidad">
     <div class="stat">
-      <span class="stat__value" id="statTotal">156</span>
+      <span class="stat__value" id="statTotal">—</span>
       <span class="stat__label">Solares</span>
     </div>
     <div class="stat stat--available">
@@ -53,6 +53,18 @@
     </button>
   </div>
 </header>
+
+<!-- ============ PESTAÑAS DE PROYECTO ============ -->
+<nav class="project-tabs" id="projectTabs" aria-label="Proyectos">
+  <button class="project-tab is-active" data-project="x" type="button">
+    <span class="project-tab__name">Jardines de Caleta X</span>
+    <span class="project-tab__meta" id="tabMetaX">156 solares</span>
+  </button>
+  <button class="project-tab" data-project="ix" type="button">
+    <span class="project-tab__name">Jardines de Caleta IX</span>
+    <span class="project-tab__meta" id="tabMetaIx">215 solares</span>
+  </button>
+</nav>
 
 <!-- ============ TOOLBAR ============ -->
 <div class="toolbar">
@@ -104,7 +116,7 @@
       <svg id="iconCollapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
     </button>
 
-    <div class="map-viewport" id="mapViewport" role="img" aria-label="Plano interactivo de la urbanización con la distribución de los 156 solares"></div>
+    <div class="map-viewport" id="mapViewport" role="img" aria-label="Plano interactivo de la urbanización con la distribución de los solares"></div>
 
     <p class="map-panel__hint">Arrastra para mover el plano · rueda del mouse o pellizco para hacer zoom · doble clic/toque para acercar</p>
   </section>
@@ -135,6 +147,8 @@
     <button class="btn btn--icon" id="btnCloseAdmin" type="button" aria-label="Cerrar panel">✕</button>
   </div>
 
+  <div class="admin-panel__projecttag" id="adminProjectTag">Proyecto: Jardines de Caleta X</div>
+
   <div class="admin-panel__search">
     <input type="text" id="adminSearch" placeholder="Filtrar por número de solar…" inputmode="numeric">
     <select id="adminStatusFilter">
@@ -152,6 +166,7 @@
           <th>Solar</th>
           <th>Área</th>
           <th>Estado</th>
+          <th>Precio</th>
           <th>Marcador</th>
         </tr>
       </thead>
@@ -190,6 +205,8 @@
     <dl class="lot-detail-grid">
       <div><dt>Área</dt><dd id="lotModalArea">—</dd></div>
       <div><dt>Estado</dt><dd id="lotModalStatusText">—</dd></div>
+      <div><dt>Precio</dt><dd id="lotModalPrice">—</dd></div>
+      <div id="lotModalReservedRow" hidden><dt id="lotModalReservedLabel">Fecha de reserva</dt><dd id="lotModalReserved">—</dd></div>
       <div><dt>Actualizado</dt><dd id="lotModalUpdated">—</dd></div>
     </dl>
 
@@ -200,6 +217,18 @@
         <option value="reservado">Reservado</option>
         <option value="vendido">Vendido</option>
       </select>
+
+      <label class="field-label">Precio (lo verá todo el mundo)</label>
+      <div class="price-field">
+        <select id="lotModalCurrency" class="price-field__currency" aria-label="Moneda">
+          <option value="USD">US$</option>
+          <option value="DOP">RD$</option>
+        </select>
+        <input type="number" id="lotModalPriceInput" class="price-field__amount" min="0" step="any" inputmode="decimal" placeholder="Ej. 45000">
+      </div>
+
+      <label class="field-label" for="lotModalDateInput">Fecha de reserva / venta (la verá todo el mundo)</label>
+      <input type="date" id="lotModalDateInput">
 
       <label class="field-label" for="lotModalNote">Nota interna (solo admin)</label>
       <textarea id="lotModalNote" rows="2" placeholder="Ej. nombre del cliente, depósito, contacto…"></textarea>
