@@ -11,18 +11,39 @@
      Cambia la contraseña de admin aquí antes de publicar el sitio.
      Esto es una protección "de cara al cliente", no es seguridad real:
      cualquiera que vea el código fuente puede leer la contraseña.
-     Si vas a producción de verdad, valida el acceso admin en un
-     backend (ver nota de Firebase más abajo).
+
+     SUPABASE — para que los cambios se vean en tiempo real entre TODOS
+     los visitantes y dispositivos (no solo en tu propio navegador):
+     1. Crea un proyecto gratis en https://supabase.com/dashboard
+     2. Ve a "SQL Editor" → pega y ejecuta el archivo supabase-setup.sql
+        que viene junto a este script (crea la tabla, los permisos, el
+        tiempo real, y siembra los 156 solares).
+     3. Ve a "Settings" → "API" y copia tu "Project URL" y tu llave
+        "anon public" (a veces aparece como "publishable key").
+     4. Pega esos dos valores abajo, en SUPABASE_URL y SUPABASE_ANON_KEY.
+     Mientras no los configures, el sitio sigue funcionando exactamente
+     como antes (guardando todo solo en este navegador con localStorage).
   ----------------------------------------------------------------- */
   const CONFIG = {
     ADMIN_PASSWORD: "caletax2026",
     STORAGE_KEY: "jcx_lots_state_v1",
     SESSION_KEY: "jcx_admin_session_v1",
-    POLL_MS: 4000,
   };
+
+  const SUPABASE_URL = "https://tecoypzwhxqczrvfwmbf.supabase.co"; 
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlY295cHp3aHhxY3pydmZ3bWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzOTUwNDksImV4cCI6MjA5Nzk3MTA0OX0.jlk6w44lpkgvTMieC8oqZlxNOt2JsMCNGTxHBOWswfo"; // <-- reemplaza con tu llave "anon public" / "publishable"
+
+  const USE_SUPABASE =
+    typeof window.supabase !== "undefined" &&
+    !SUPABASE_URL.includes("TU-PROYECTO") &&
+    !SUPABASE_ANON_KEY.includes("TU-ANON-KEY");
+
+  const sb = USE_SUPABASE ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
   /* ---------------------------------------------------------------
      1. DATOS BASE — Solares 1 a 156 (áreas según planilla del plano)
+     Esto solo se usa para el modo local (sin Supabase) o como respaldo
+     si la conexión a Supabase falla por algún motivo.
   ----------------------------------------------------------------- */
   const LOTS_BASE = [
     [1,425.01],[2,427.00],[3,426.00],[4,429.00],[5,430.00],[6,431.00],[7,431.00],
@@ -56,18 +77,15 @@
   /* ---------------------------------------------------------------
      2. ESTADO / PERSISTENCIA
      -----------------------------------------------------------------
-     Por defecto los datos se guardan en localStorage. Esto funciona
-     perfectamente para una demo o para un solo dispositivo/admin, y
-     se sincroniza automáticamente entre pestañas del MISMO navegador
-     (vía BroadcastChannel + evento "storage").
+     MODO SUPABASE (cuando configuraste SUPABASE_URL/ANON_KEY arriba):
+     el estado vive en la base de datos compartida; todos los visitantes
+     leen y escriben la misma tabla, y "Realtime" avisa a todos los
+     navegadores conectados en cuanto algo cambia — sin recargar.
 
-     ⚠️ IMPORTANTE — tiempo real ENTRE DISTINTOS visitantes/dispositivos:
-     localStorage vive solo en el navegador de cada persona, así que
-     dos visitantes en dos computadoras distintas NO se sincronizan
-     entre sí con esta configuración. Para eso necesitas una base de
-     datos compartida. Dejamos lista la integración con Firebase
-     Realtime Database (gratis) — busca "FIREBASE" en este archivo
-     y en el README para activarla en 5 minutos.
+     MODO LOCAL (respaldo, si no configuraste Supabase): el estado se
+     guarda en localStorage de este navegador únicamente, igual que
+     antes. Sirve para probar el sitio antes de conectar la base de
+     datos, pero NO se sincroniza entre distintos visitantes/dispositivos.
   ----------------------------------------------------------------- */
 
   function defaultState() {
@@ -78,7 +96,7 @@
     return obj;
   }
 
-  function loadState() {
+  function loadLocalState() {
     try {
       const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
       if (!raw) return defaultState();
@@ -95,16 +113,18 @@
     }
   }
 
-  let state = loadState();
-
-  function persist() {
+  function persistLocal() {
     localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state));
     broadcastUpdate();
   }
 
-  /* --- sincronización en tiempo real entre pestañas (mismo navegador) --- */
+  let state = sb ? defaultState() : loadLocalState(); // en modo Supabase esto es solo un placeholder mientras carga la tabla real
+
+  /* --- sincronización entre pestañas del mismo navegador (solo modo local) --- */
   let channel = null;
-  try { channel = new BroadcastChannel("jcx-sync"); } catch (e) { channel = null; }
+  if (!sb) {
+    try { channel = new BroadcastChannel("jcx-sync"); } catch (e) { channel = null; }
+  }
 
   function broadcastUpdate() {
     if (channel) {
@@ -112,49 +132,64 @@
     }
   }
 
-  function refreshFromStorage() {
-    state = loadState();
+  function refreshFromLocalStorage() {
+    state = loadLocalState();
     renderAll();
   }
 
   if (channel) {
     channel.onmessage = (ev) => {
-      if (ev && ev.data && ev.data.type === "update") refreshFromStorage();
+      if (ev && ev.data && ev.data.type === "update") refreshFromLocalStorage();
+    };
+    window.addEventListener("storage", (ev) => {
+      if (ev.key === CONFIG.STORAGE_KEY) refreshFromLocalStorage();
+    });
+  }
+
+  /* --- modo Supabase: carga inicial + tiempo real entre todos los dispositivos --- */
+  function rowToLot(row) {
+    return {
+      id: row.id,
+      area: Number(row.area),
+      status: row.status,
+      x: row.x == null ? null : Number(row.x),
+      y: row.y == null ? null : Number(row.y),
+      note: row.note || "",
+      updatedAt: row.updated_at,
     };
   }
-  window.addEventListener("storage", (ev) => {
-    if (ev.key === CONFIG.STORAGE_KEY) refreshFromStorage();
-  });
-  // sondeo de respaldo, por si BroadcastChannel/storage no disparan (algunos navegadores móviles)
-  setInterval(refreshFromStorage, CONFIG.POLL_MS);
 
-  /*
-    ---------------------------------------------------------------
-    FIREBASE (OPCIONAL) — sincronización real entre distintos dispositivos
-    -----------------------------------------------------------------
-    1. Crea un proyecto gratis en https://console.firebase.google.com
-    2. Activa "Realtime Database" en modo de prueba.
-    3. Agrega el SDK en index.html (antes de script.js):
-         <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-         <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    4. Pega tu config y descomenta este bloque:
-
-    const firebaseConfig = { apiKey:"...", databaseURL:"...", projectId:"..." };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database().ref("jcx_lots");
-
-    function persist() {
-      localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state));
-      db.set(state); // sube el cambio a todos los visitantes en tiempo real
+  async function loadStateFromSupabase() {
+    const { data, error } = await sb.from("lots").select("*").order("id");
+    if (error || !data || data.length === 0) {
+      console.warn("No se pudo cargar la tabla de Supabase, usando valores por defecto.", error);
+      toast("No se pudo conectar a la base de datos — revisa supabase-setup.sql y tus llaves");
+      state = defaultState();
+      renderAll();
+      return;
     }
-    db.on("value", (snap) => {
-      if (snap.exists()) { state = snap.val(); renderAll(); }
-    });
+    const fresh = defaultState();
+    data.forEach((row) => { fresh[row.id] = rowToLot(row); });
+    state = fresh;
+    renderAll();
+  }
 
-    Con esto, cualquier cambio que haga el admin se refleja al instante
-    en el navegador de TODAS las personas que tengan la página abierta,
-    en cualquier dispositivo del mundo.
-    ----------------------------------------------------------------- */
+  function subscribeRealtime() {
+    sb.channel("lots-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "lots" }, (payload) => {
+        const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+        if (!row || row.id == null) return;
+        if (payload.eventType === "DELETE") return; // no borramos solares por código, solo se actualizan
+        state[row.id] = rowToLot(row);
+        renderAll();
+      })
+      .subscribe();
+  }
+
+  if (sb) {
+    loadStateFromSupabase();
+    subscribeRealtime();
+  }
 
   /* ---------------------------------------------------------------
      3. UTILIDADES
@@ -342,9 +377,22 @@
   function updateLot(id, patch) {
     const lot = state[id];
     if (!lot) return;
-    Object.assign(lot, patch, { updatedAt: new Date().toISOString() });
-    persist();
-    renderAll();
+    const updatedAt = new Date().toISOString();
+    Object.assign(lot, patch, { updatedAt });
+    renderAll(); // actualiza la pantalla de inmediato (no esperamos a la red)
+
+    if (sb) {
+      const row = { status: lot.status, x: lot.x, y: lot.y, note: lot.note, updated_at: updatedAt };
+      sb.from("lots").update(row).eq("id", Number(id)).then(({ error }) => {
+        if (error) {
+          console.warn("No se pudo guardar en Supabase:", error);
+          toast("⚠️ No se pudo guardar en la base de datos — revisa tu conexión");
+        }
+      });
+      // los demás visitantes reciben este mismo cambio por la suscripción de Realtime
+    } else {
+      persistLocal();
+    }
   }
 
   /* ---------------------------------------------------------------
