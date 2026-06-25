@@ -361,6 +361,7 @@
     if (!viewerReady) return;
     const shouldShow = new Set();
     Object.values(currentState()).forEach((lot) => {
+      try {
       if (lot.x == null || lot.y == null || lot.status === "disponible") return;
       const idStr = String(lot.id);
       shouldShow.add(idStr);
@@ -371,17 +372,21 @@
         el = document.createElement("div");
         el.id = elId;
         const lotId = lot.id;
-        // OpenSeadragon captura los gestos del lienzo, así que un "click" normal del
-        // navegador sobre el overlay no siempre llega. Usamos su MouseTracker, que
-        // funciona también al tocar en el celular.
-        el._tracker = new OpenSeadragon.MouseTracker({
-          element: el,
-          clickHandler: (e) => {
-            if (e.quick) { e.originalEvent && e.originalEvent.stopPropagation(); openLotModal(lotId); }
-          },
-        });
-        el._tracker.setTracking(true);
+        const openThis = (ev) => { if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); } openLotModal(lotId); };
+        // 1) Dibujar SIEMPRE el marcador primero (esto es lo que lo hace visible)
         viewer.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
+        // 2) Click normal del navegador (respaldo fiable en escritorio y móvil)
+        el.addEventListener("click", openThis);
+        el.addEventListener("touchend", openThis, { passive: false });
+        // 3) Además, el detector de OpenSeadragon (mejor dentro del lienzo), pero
+        //    protegido: si algo falla, el marcador ya está dibujado y sigue clicable.
+        try {
+          el._tracker = new OpenSeadragon.MouseTracker({
+            element: el,
+            clickHandler: (e) => { if (e.quick) openLotModal(lotId); },
+          });
+          if (el._tracker.setTracking) el._tracker.setTracking(true);
+        } catch (err) { /* el click DOM ya cubre la apertura */ }
       } else {
         viewer.updateOverlay(el, point, OpenSeadragon.Placement.CENTER);
       }
@@ -389,6 +394,7 @@
       const pTxt = fmtPrice(lot.price, lot.currency);
       el.title = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status] + (pTxt ? " · " + pTxt : "");
       el.textContent = lot.status === "vendido" ? "✕" : "●";
+      } catch (err) { console.warn("No se pudo dibujar el marcador del solar", lot && lot.id, err); }
     });
     shownMarkerIds.forEach((id) => {
       if (!shouldShow.has(id)) {
