@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Jardines de Caleta X · Plano de solares</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ HEADER / TITLE BLOCK ============ -->
+<header class="titleblock">
+  <div class="titleblock__brand">
+    <div class="titleblock__mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="34" height="34">
+        <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M20 4 L20 12 M20 28 L20 36 M4 20 L12 20 M28 20 L36 20" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="20" cy="20" r="4.5" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="titleblock__text">
+      <h1>Urbanización Jardines de Caleta&nbsp;X</h1>
+      <p>La Romana, República Dominicana — Plano general de distribución de solares</p>
+    </div>
+  </div>
+
+  <div class="titleblock__stats" id="statsRow" aria-label="Resumen de disponibilidad">
+    <div class="stat">
+      <span class="stat__value" id="statTotal">156</span>
+      <span class="stat__label">Solares</span>
+    </div>
+    <div class="stat stat--available">
+      <span class="stat__value" id="statAvailable">—</span>
+      <span class="stat__label">Disponibles</span>
+    </div>
+    <div class="stat stat--reserved">
+      <span class="stat__value" id="statReserved">—</span>
+      <span class="stat__label">Reservados</span>
+    </div>
+    <div class="stat stat--sold">
+      <span class="stat__value" id="statSold">—</span>
+      <span class="stat__label">Vendidos</span>
+    </div>
+  </div>
+
+  <div class="titleblock__actions">
+    <button class="btn btn--ghost" id="btnAdminToggle" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12a4 4 0 100-8 4 4 0 000 8z"/><path d="M4 20c0-3.5 3.5-6 8-6s8 2.5 8 6"/></svg>
+      <span id="adminBtnLabel">Acceso admin</span>
+    </button>
+  </div>
+</header>
+
+<!-- ============ TOOLBAR ============ -->
+<div class="toolbar">
+  <div class="toolbar__search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input type="text" id="searchInput" placeholder="Buscar solar por número… (ej. 53)" inputmode="numeric" enterkeyhint="search">
+    <button class="btn--searchgo" id="btnSearchGo" type="button" aria-label="Buscar solar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+
+  <button class="btn btn--primary btn--mark admin-only" id="btnAdminMark" type="button" hidden>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.5-7-11a7 7 0 1114 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    Marcar
+  </button>
+
+  <div class="toolbar__legend" aria-label="Leyenda">
+    <span class="legend-item"><i class="dot dot--available"></i>Disponible</span>
+    <span class="legend-item"><i class="dot dot--reserved"></i>Reservado</span>
+    <span class="legend-item"><i class="dot dot--sold"></i>Vendido</span>
+  </div>
+
+  <div class="toolbar__zoom">
+    <button class="btn btn--icon" id="btnZoomOut" type="button" title="Alejar" aria-label="Alejar">−</button>
+    <span class="zoom-readout" id="zoomReadout">100%</span>
+    <button class="btn btn--icon" id="btnZoomIn" type="button" title="Acercar" aria-label="Acercar">+</button>
+    <button class="btn btn--ghost btn--small" id="btnZoomReset" type="button">Restablecer</button>
+  </div>
+</div>
+
+<!-- ============ PLACEMENT BANNER (admin) ============ -->
+<div class="placement-banner" id="placementBanner" hidden>
+  <span>Modo ubicación: toca sobre el plano para colocar el marcador del <strong id="placementLotLabel">Solar #</strong>.</span>
+  <button type="button" id="btnCancelPlacement" class="btn btn--small btn--ghost-light">Cancelar (Esc)</button>
+</div>
+
+<!-- ============ MAIN LAYOUT ============ -->
+<main class="layout">
+
+  <!-- MAP VIEWER -->
+  <section class="map-panel" aria-label="Plano interactivo" id="mapPanel">
+    <div class="map-panel__reg map-panel__reg--tl" aria-hidden="true"></div>
+    <div class="map-panel__reg map-panel__reg--tr" aria-hidden="true"></div>
+    <div class="map-panel__reg map-panel__reg--bl" aria-hidden="true"></div>
+    <div class="map-panel__reg map-panel__reg--br" aria-hidden="true"></div>
+
+    <button class="map-panel__expand" id="btnMapExpand" type="button" aria-label="Ampliar plano a pantalla completa" title="Pantalla completa">
+      <svg id="iconExpand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4M15 3h4a2 2 0 012 2v4M9 21H5a2 2 0 01-2-2v-4M15 21h4a2 2 0 002-2v-4"/></svg>
+      <svg id="iconCollapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+    </button>
+
+    <div class="map-viewport" id="mapViewport">
+      <div class="map-stage" id="mapStage">
+        <img id="mapImage" src="assets/plano-jardines-caleta-x.jpg" alt="Plano de la urbanización Jardines de Caleta X con la distribución de los 156 solares" draggable="false">
+        <div class="markers-layer" id="markersLayer"></div>
+      </div>
+    </div>
+
+    <p class="map-panel__hint">Arrastra para mover el plano · rueda del mouse o pellizco para hacer zoom · doble clic/toque para acercar</p>
+  </section>
+
+  <!-- SIDEBAR: RESERVAS -->
+  <aside class="sidebar" aria-label="Reservas">
+    <button type="button" class="sidebar__collapse-toggle" id="btnSidebarToggle" aria-expanded="true">
+      <h2>Reservas</h2>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="sidebar__chevron"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="sidebar__body" id="sidebarBody">
+      <div class="filter-chips" id="filterChips">
+        <button class="chip is-active" data-filter="activos" type="button">Reservados/Vendidos</button>
+        <button class="chip" data-filter="todos" type="button">Todos los solares</button>
+      </div>
+      <ul class="lot-list" id="lotList" role="list"></ul>
+      <p class="empty-state" id="emptyState" hidden>Aún no hay solares reservados ni vendidos.</p>
+    </div>
+  </aside>
+
+</main>
+
+<!-- ============ ADMIN PANEL (slide-in) ============ -->
+<div class="admin-overlay" id="adminOverlay" hidden></div>
+<aside class="admin-panel" id="adminPanel" hidden aria-label="Panel de administración">
+  <div class="admin-panel__head">
+    <h2>Panel de administración</h2>
+    <button class="btn btn--icon" id="btnCloseAdmin" type="button" aria-label="Cerrar panel">✕</button>
+  </div>
+
+  <div class="admin-panel__search">
+    <input type="text" id="adminSearch" placeholder="Filtrar por número de solar…" inputmode="numeric">
+    <select id="adminStatusFilter">
+      <option value="todos">Todos los estados</option>
+      <option value="disponible">Disponibles</option>
+      <option value="reservado">Reservados</option>
+      <option value="vendido">Vendidos</option>
+    </select>
+  </div>
+
+  <div class="admin-panel__table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Solar</th>
+          <th>Área</th>
+          <th>Estado</th>
+          <th>Marcador</th>
+        </tr>
+      </thead>
+      <tbody id="adminTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="admin-panel__foot">
+    <button class="btn btn--ghost-light btn--small" id="btnExportData" type="button">Exportar datos (JSON)</button>
+    <button class="btn btn--danger btn--small" id="btnLogoutAdmin" type="button">Cerrar sesión</button>
+  </div>
+</aside>
+
+<!-- ============ LOGIN MODAL ============ -->
+<div class="modal-backdrop" id="loginBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <h2 id="loginTitle">Acceso de administrador</h2>
+    <p class="modal__hint">Introduce la contraseña para marcar y desmarcar solares.</p>
+    <form id="loginForm">
+      <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required>
+      <p class="modal__error" id="loginError" hidden>Contraseña incorrecta. Intenta de nuevo.</p>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" id="btnCancelLogin">Cancelar</button>
+        <button type="submit" class="btn btn--primary">Entrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ LOT DETAIL / EDIT POPUP ============ -->
+<div class="modal-backdrop" id="lotBackdrop" hidden>
+  <div class="modal modal--lot" role="dialog" aria-modal="true" aria-labelledby="lotModalTitle">
+    <button type="button" class="modal__close" id="btnCloseLotModal" aria-label="Cerrar">✕</button>
+    <span class="modal__eyebrow" id="lotModalEyebrow">SOLAR</span>
+    <h2 id="lotModalTitle">—</h2>
+    <dl class="lot-detail-grid">
+      <div><dt>Área</dt><dd id="lotModalArea">—</dd></div>
+      <div><dt>Estado</dt><dd id="lotModalStatusText">—</dd></div>
+      <div><dt>Actualizado</dt><dd id="lotModalUpdated">—</dd></div>
+    </dl>
+
+    <div id="lotModalAdminControls" hidden>
+      <label class="field-label" for="lotModalStatusSelect">Cambiar estado</label>
+      <select id="lotModalStatusSelect">
+        <option value="disponible">Disponible</option>
+        <option value="reservado">Reservado</option>
+        <option value="vendido">Vendido</option>
+      </select>
+
+      <label class="field-label" for="lotModalNote">Nota interna (solo admin)</label>
+      <textarea id="lotModalNote" rows="2" placeholder="Ej. nombre del cliente, depósito, contacto…"></textarea>
+
+      <button type="button" class="btn btn--ghost btn--block" id="btnPlaceMarker">Ubicar en el plano</button>
+
+      <div class="modal__actions modal__actions--split">
+        <button type="button" class="btn btn--ghost" id="btnRemoveMarker" hidden>Quitar marcador</button>
+        <button type="button" class="btn btn--primary" id="btnSaveLot">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="script.js"></script>
+</body>
+</html>
