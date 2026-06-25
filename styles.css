@@ -200,7 +200,7 @@ body.is-admin .admin-only{ display: inline-flex; }
 .map-viewport{
   position:relative;
   width:100%;
-  aspect-ratio: 3200 / 2125;
+  aspect-ratio: 6000 / 3545; /* proporción real de assets/plano-jardines-caleta-x.png — se ajusta sola por JS si cambias la imagen (ver script.js) */
   overflow:hidden;
   background:
     linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/24px 24px,

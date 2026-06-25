@@ -552,11 +552,24 @@
      11b. PANTALLA COMPLETA DEL PLANO (móvil y escritorio)
   ----------------------------------------------------------------- */
   const mapPanel = $("#mapPanel");
+  const mapImageEl = $("#mapImage");
   let isMapFullscreen = false;
+  let imageRatio = 6000 / 3545; // valor de respaldo; se reemplaza por el tamaño real de la imagen en cuanto carga
+
+  function syncImageRatio() {
+    if (mapImageEl.naturalWidth && mapImageEl.naturalHeight) {
+      imageRatio = mapImageEl.naturalWidth / mapImageEl.naturalHeight;
+      // ajusta el visor a la proporción real de la imagen actual (por si se reemplaza el archivo más adelante
+      // con otra de proporciones distintas, sin tener que editar el CSS a mano)
+      viewport.style.aspectRatio = mapImageEl.naturalWidth + " / " + mapImageEl.naturalHeight;
+    }
+  }
+  if (mapImageEl.complete) syncImageRatio();
+  mapImageEl.addEventListener("load", syncImageRatio);
 
   function sizeFullscreenViewport() {
     if (!isMapFullscreen) return;
-    const ratio = 3200 / 2125; // debe coincidir con la relación de aspecto real del plano
+    const ratio = imageRatio;
     const hint = $(".map-panel__hint");
     const panelRect = mapPanel.getBoundingClientRect();
     const hintH = hint ? hint.offsetHeight + 16 : 0;
