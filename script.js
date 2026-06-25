@@ -20,7 +20,7 @@
     SESSION_KEY: "jcx_admin_session_v1",
     POLL_MS: 4000,
     MIN_SCALE: 1,
-    MAX_SCALE: 6,
+    MAX_SCALE: 12, // antes 6 — permite acercarse más para leer los números de los solares
   };
 
   /* ---------------------------------------------------------------
@@ -391,6 +391,10 @@
   function applyTransform() {
     stage.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
     $("#zoomReadout").textContent = Math.round(view.scale * 100) + "%";
+    // al 100% dejamos el suavizado normal (se ve más natural); al hacer zoom,
+    // forzamos un renderizado más nítido para que los números y rótulos no se
+    // vean borrosos por la interpolación que aplica el navegador al agrandar
+    $("#mapImage").classList.toggle("is-zoomed", view.scale > 1.01);
     rescaleMarkers();
   }
 
@@ -550,6 +554,26 @@
   const mapPanel = $("#mapPanel");
   let isMapFullscreen = false;
 
+  function sizeFullscreenViewport() {
+    if (!isMapFullscreen) return;
+    const ratio = 3200 / 2125; // debe coincidir con la relación de aspecto real del plano
+    const hint = $(".map-panel__hint");
+    const panelRect = mapPanel.getBoundingClientRect();
+    const hintH = hint ? hint.offsetHeight + 16 : 0;
+    const availW = Math.max(0, panelRect.width - 4);
+    const availH = Math.max(0, panelRect.height - hintH - 4);
+    let w = availW;
+    let h = w / ratio;
+    if (h > availH) {
+      h = availH;
+      w = h * ratio;
+    }
+    viewport.style.width = w + "px";
+    viewport.style.height = h + "px";
+    clampPan();
+    applyTransform();
+  }
+
   function enterFullscreenMap() {
     isMapFullscreen = true;
     mapPanel.classList.add("is-fullscreen");
@@ -557,7 +581,8 @@
     $("#iconExpand").hidden = true;
     $("#iconCollapse").hidden = false;
     $("#btnMapExpand").setAttribute("aria-label", "Salir de pantalla completa");
-    requestAnimationFrame(clampPan);
+    // espera un frame a que el panel termine de ocupar toda la pantalla antes de medir
+    requestAnimationFrame(() => requestAnimationFrame(sizeFullscreenViewport));
   }
   function exitFullscreenMap() {
     if (!isMapFullscreen) return;
@@ -567,12 +592,17 @@
     $("#iconExpand").hidden = false;
     $("#iconCollapse").hidden = true;
     $("#btnMapExpand").setAttribute("aria-label", "Ampliar plano a pantalla completa");
+    // devuelve el visor a su tamaño normal (controlado por CSS, ancho 100% + aspect-ratio)
+    viewport.style.width = "";
+    viewport.style.height = "";
     requestAnimationFrame(clampPan);
   }
   $("#btnMapExpand").addEventListener("click", () => {
     if (isMapFullscreen) exitFullscreenMap();
     else enterFullscreenMap();
   });
+  window.addEventListener("resize", () => { if (isMapFullscreen) sizeFullscreenViewport(); });
+  window.addEventListener("orientationchange", () => { if (isMapFullscreen) setTimeout(sizeFullscreenViewport, 200); });
 
   /* ---------------------------------------------------------------
      12. MODAL DE DETALLE / EDICIÓN DE UN SOLAR

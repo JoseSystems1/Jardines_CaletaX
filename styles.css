@@ -223,6 +223,12 @@ body.is-admin .admin-only{ display: inline-flex; }
   width:100%; height:100%; object-fit:contain; display:block;
   user-select:none; -webkit-user-drag:none;
 }
+/* al hacer zoom evitamos el suavizado/difuminado por defecto del navegador,
+   para que el texto y los números del plano se vean más definidos */
+.map-stage img.is-zoomed{
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
 .markers-layer{ position:absolute; inset:0; }
 
 .map-panel__hint{
@@ -233,13 +239,17 @@ body.is-admin .admin-only{ display: inline-flex; }
 .map-panel.is-fullscreen{
   position: fixed; inset: 0; z-index: 90;
   border-radius: 0; border: none;
-  display:flex; flex-direction:column; justify-content:center;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
   padding: env(safe-area-inset-top, 10px) env(safe-area-inset-right, 10px) env(safe-area-inset-bottom, 10px) env(safe-area-inset-left, 10px);
   background: var(--ink);
 }
 .map-panel.is-fullscreen .map-panel__reg{ display:none; }
-.map-panel.is-fullscreen .map-viewport{ max-height: 88vh; max-height: 88dvh; width:auto; max-width: 100%; margin: 0 auto; }
-.map-panel.is-fullscreen .map-panel__hint{ color:#9DBADB; }
+/* en pantalla completa, el ancho/alto exacto del visor se calcula y se fija
+   por JavaScript (ver sizeFullscreenViewport en script.js) porque aspect-ratio
+   combinado con width:auto no tiene suficiente información para dimensionarse
+   solo dentro de un contenedor flex centrado */
+.map-panel.is-fullscreen .map-viewport{ flex: none; aspect-ratio: auto; }
+.map-panel.is-fullscreen .map-panel__hint{ color:#9DBADB; flex-shrink:0; }
 body.map-fullscreen-active{ overflow: hidden; }
 
 /* ---------- markers ---------- */
