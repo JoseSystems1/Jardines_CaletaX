@@ -1,60 +1,39 @@
-/* =================================================================
-   JARDINES DE CALETA — lógica de la aplicación (X + IX)
-   =================================================================
-   Esta versión maneja DOS proyectos con pestañas: "Caleta X" y
-   "Caleta IX". Todo funciona igual que antes (reservar, marcar
-   disponible/reservado/vendido desde el admin, ubicar marcadores en
-   el plano), pero ahora cada pestaña tiene su propio plano (DZI) y su
-   propio listado de solares, guardados por separado.
-   ================================================================= */
-
 (function () {
   "use strict";
 
+  console.log("=== SCRIPT INICIANDO ===");
+
   /* ---------------------------------------------------------------
      0. CONFIGURACIÓN
-     -----------------------------------------------------------------
-     Cambia la contraseña de admin aquí antes de publicar el sitio.
-     Esto es una protección "de cara al cliente", no es seguridad real:
-     cualquiera que vea el código fuente puede leer la contraseña.
-
-     SUPABASE — para que los cambios se vean en tiempo real entre TODOS
-     los visitantes y dispositivos (no solo en tu propio navegador):
-     1. Crea un proyecto gratis en https://supabase.com/dashboard
-     2. Ve a "SQL Editor" → pega y ejecuta el archivo supabase-setup.sql
-        que viene junto a este script (crea la tabla con una columna
-        "project", los permisos, el tiempo real, y siembra los solares
-        de AMBOS proyectos: 156 de Caleta X y 215 de Caleta IX).
-     3. Ve a "Settings" → "API" y copia tu "Project URL" y tu llave
-        "anon public" (a veces aparece como "publishable key").
-     4. Pega esos dos valores abajo, en SUPABASE_URL y SUPABASE_ANON_KEY.
-     Mientras no los configures, el sitio sigue funcionando guardando
-     todo solo en este navegador con localStorage.
   ----------------------------------------------------------------- */
   const CONFIG = {
     ADMIN_PASSWORD: "caletax2026",
-    STORAGE_KEY_PREFIX: "jcx_lots_state_v2_", // se le añade el proyecto: ..._x / ..._ix
+    STORAGE_KEY_PREFIX: "jcx_lots_state_v2_",
     SESSION_KEY: "jcx_admin_session_v1",
   };
 
   const SUPABASE_URL = "https://tecoypzwhxqczrvfwmbf.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlY295cHp3aHhxY3pydmZ3bWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzOTUwNDksImV4cCI6MjA5Nzk3MTA0OX0.jlk6w44lpkgvTMieC8oqZlxNOt2JsMCNGTxHBOWswfo";
 
-  const USE_SUPABASE =
-    typeof window.supabase !== "undefined" &&
-    !SUPABASE_URL.includes("TU-PROYECTO") &&
-    !SUPABASE_ANON_KEY.includes("TU-ANON-KEY");
+  console.log("✓ Config cargada");
+  console.log("✓ Supabase URL:", SUPABASE_URL);
+  console.log("✓ window.supabase existe?", typeof window.supabase !== "undefined");
+
+  // FORZAR el uso de Supabase
+  const USE_SUPABASE = typeof window.supabase !== "undefined";
+  console.log("✓ USE_SUPABASE =", USE_SUPABASE);
 
   const sb = USE_SUPABASE ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  console.log("✓ Cliente Supabase:", sb ? "✅ CONECTADO" : "❌ NO CONECTADO");
+
+  if (sb) {
+    console.log("✓ Supabase está activado - usando BD en tiempo real");
+  } else {
+    console.warn("⚠️ Supabase NO está disponible - usando localStorage local");
+  }
 
   /* ---------------------------------------------------------------
      1. DATOS BASE DE CADA PROYECTO
-     -----------------------------------------------------------------
-     LOTS_BASE_X  → 156 solares de Jardines de Caleta X
-     LOTS_BASE_IX → 215 solares de Jardines de Caleta IX (extraídos del
-                    plano "8_477_24m2.pdf", áreas según la planilla).
-     imgW/imgH son el tamaño real del plano en píxeles (se confirma solo
-     al cargar cada .dzi; estos valores son solo el respaldo inicial).
   ----------------------------------------------------------------- */
   const LOTS_BASE_X = [
     [1,425.01],[2,427.00],[3,426.00],[4,429.00],[5,430.00],[6,431.00],[7,431.00],
@@ -142,7 +121,7 @@
   function P() { return PROJECTS[activeProject]; }
 
   /* ---------------------------------------------------------------
-     2. ESTADO / PERSISTENCIA (uno por proyecto)
+     2. ESTADO / PERSISTENCIA
   ----------------------------------------------------------------- */
   function defaultState(projKey) {
     const obj = {};
@@ -169,15 +148,14 @@
       });
       return base;
     } catch (e) {
-      console.warn("No se pudo leer el estado guardado de", projKey, e);
+      console.warn("No se pudo leer localStorage:", projKey, e);
       return defaultState(projKey);
     }
   }
 
-  // almacén de los dos proyectos en memoria
   const states = {
-    x: sb ? defaultState("x") : loadLocalState("x"),
-    ix: sb ? defaultState("ix") : loadLocalState("ix"),
+    x: defaultState("x"),
+    ix: defaultState("ix"),
   };
   function currentState() { return states[activeProject]; }
 
@@ -186,7 +164,6 @@
     broadcastUpdate(projKey);
   }
 
-  /* --- sincronización entre pestañas del MISMO navegador (solo modo local) --- */
   let channel = null;
   if (!sb) {
     try { channel = new BroadcastChannel("jcx-sync"); } catch (e) { channel = null; }
@@ -208,7 +185,6 @@
     });
   }
 
-  /* --- modo Supabase: carga inicial de AMBOS proyectos + tiempo real --- */
   function rowToLot(row) {
     return {
       id: row.id,
@@ -225,15 +201,18 @@
   }
 
   async function loadStateFromSupabase() {
-    const { data, error } = await sb.from("lots").select("*").order("project").order("id");
-    if (error || !data || data.length === 0) {
-      console.warn("No se pudo cargar la tabla de Supabase, usando valores por defecto.", error);
-      toast("No se pudo conectar a la base de datos — revisa supabase-setup.sql y tus llaves");
-      states.x = defaultState("x");
-      states.ix = defaultState("ix");
-      renderAll(); renderTabsMeta();
+    if (!sb) {
+      console.warn("⚠️ Supabase no disponible, usando localStorage");
       return;
     }
+    console.log("📡 Cargando datos de Supabase...");
+    const { data, error } = await sb.from("lots").select("*").order("project").order("id");
+    if (error || !data || data.length === 0) {
+      console.warn("❌ Error al cargar Supabase:", error);
+      toast("No se pudo conectar a la base de datos");
+      return;
+    }
+    console.log("✅ Datos cargados de Supabase:", data.length, "registros");
     const fresh = { x: defaultState("x"), ix: defaultState("ix") };
     data.forEach((row) => {
       const pk = row.project;
@@ -241,12 +220,16 @@
     });
     states.x = fresh.x;
     states.ix = fresh.ix;
-    renderAll(); renderTabsMeta();
+    renderAll();
+    renderTabsMeta();
   }
 
   function subscribeRealtime() {
+    if (!sb) return;
+    console.log("🔔 Suscribiendo a cambios en tiempo real...");
     sb.channel("lots-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "lots" }, (payload) => {
+        console.log("🔔 Cambio detectado en BD:", payload.eventType);
         const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
         if (!row || row.id == null) return;
         if (payload.eventType === "DELETE") return;
@@ -277,7 +260,6 @@
   };
   const fmtDateOnly = (val) => {
     if (!val) return "—";
-    // val esperado "YYYY-MM-DD"; se interpreta como fecha local sin desfase de zona horaria
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(val);
     const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(val);
     if (isNaN(d.getTime())) return "—";
@@ -305,7 +287,7 @@
   }
 
   /* ---------------------------------------------------------------
-     4. SESIÓN ADMIN (compartida entre ambos proyectos)
+     4. SESIÓN ADMIN
   ----------------------------------------------------------------- */
   let isAdmin = sessionStorage.getItem(CONFIG.SESSION_KEY) === "1";
 
@@ -324,7 +306,7 @@
   }
 
   /* ---------------------------------------------------------------
-     5. RENDER — estadísticas + cabecera + pestañas
+     5. RENDER
   ----------------------------------------------------------------- */
   function renderStats() {
     const all = Object.values(currentState());
@@ -354,7 +336,7 @@
   }
 
   /* ---------------------------------------------------------------
-     6. RENDER — marcadores sobre el plano (overlays de OpenSeadragon)
+     6. MARCADORES
   ----------------------------------------------------------------- */
   const shownMarkerIds = new Set();
   function renderMarkers() {
@@ -373,20 +355,16 @@
         el.id = elId;
         const lotId = lot.id;
         const openThis = (ev) => { if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); } openLotModal(lotId); };
-        // 1) Dibujar SIEMPRE el marcador primero (esto es lo que lo hace visible)
         viewer.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
-        // 2) Click normal del navegador (respaldo fiable en escritorio y móvil)
         el.addEventListener("click", openThis);
         el.addEventListener("touchend", openThis, { passive: false });
-        // 3) Además, el detector de OpenSeadragon (mejor dentro del lienzo), pero
-        //    protegido: si algo falla, el marcador ya está dibujado y sigue clicable.
         try {
           el._tracker = new OpenSeadragon.MouseTracker({
             element: el,
             clickHandler: (e) => { if (e.quick) openLotModal(lotId); },
           });
           if (el._tracker.setTracking) el._tracker.setTracking(true);
-        } catch (err) { /* el click DOM ya cubre la apertura */ }
+        } catch (err) { }
       } else {
         viewer.updateOverlay(el, point, OpenSeadragon.Placement.CENTER);
       }
@@ -394,7 +372,7 @@
       const pTxt = fmtPrice(lot.price, lot.currency);
       el.title = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status] + (pTxt ? " · " + pTxt : "");
       el.textContent = lot.status === "vendido" ? "✕" : "●";
-      } catch (err) { console.warn("No se pudo dibujar el marcador del solar", lot && lot.id, err); }
+      } catch (err) { console.warn("Error dibujando marcador:", lot && lot.id, err); }
     });
     shownMarkerIds.forEach((id) => {
       if (!shouldShow.has(id)) {
@@ -407,7 +385,7 @@
   }
 
   /* ---------------------------------------------------------------
-     7. RENDER — lista de reservas (sidebar)
+     7. LISTA DE RESERVAS
   ----------------------------------------------------------------- */
   let currentFilter = "activos";
 
@@ -445,7 +423,7 @@
   }
 
   /* ---------------------------------------------------------------
-     8. RENDER — panel admin (tabla completa)
+     8. PANEL ADMIN
   ----------------------------------------------------------------- */
   function renderAdminTable() {
     if (!isAdmin) return;
@@ -488,7 +466,6 @@
       sel.addEventListener("change", () => {
         const id = sel.dataset.id;
         const patch = { status: sel.value };
-        // al pasar a reservado/vendido sin fecha previa, se pone la fecha de hoy
         const lot = currentState()[id];
         if (sel.value !== "disponible" && lot && !lot.reservedDate) patch.reservedDate = todayISODate();
         updateLot(id, patch);
@@ -513,7 +490,7 @@
   }
 
   /* ---------------------------------------------------------------
-     9. ACTUALIZAR UN SOLAR (del proyecto activo)
+     9. ACTUALIZAR SOLAR
   ----------------------------------------------------------------- */
   function updateLot(id, patch) {
     const lot = currentState()[id];
@@ -533,8 +510,10 @@
         .eq("id", Number(id))
         .then(({ error }) => {
           if (error) {
-            console.warn("No se pudo guardar en Supabase:", error);
-            toast("⚠️ No se pudo guardar en la base de datos — revisa tu conexión");
+            console.warn("❌ Error guardando en Supabase:", error);
+            toast("⚠️ Error al guardar en BD");
+          } else {
+            console.log("✅ Solar #" + id + " guardado en Supabase");
           }
         });
     } else {
@@ -543,7 +522,7 @@
   }
 
   /* ---------------------------------------------------------------
-     10. MODO "UBICAR MARCADOR" sobre el plano
+     10. UBICAR MARCADOR
   ----------------------------------------------------------------- */
   let placementLotId = null;
   let reopenAdminPanelAfterPlacement = false;
@@ -584,9 +563,7 @@
   });
 
   /* ---------------------------------------------------------------
-     11. VISOR DEL PLANO — OpenSeadragon (un solo visor que cambia de
-     plano al cambiar de pestaña, usando los mosaicos pre-cortados de
-     assets/dzi/ (Caleta X) y assets/dzi-ix/ (Caleta IX)).
+     11. VISOR OpenSeadragon
   ----------------------------------------------------------------- */
   let viewerReady = false;
   let IMG_W = PROJECTS.x.imgW, IMG_H = PROJECTS.x.imgH;
@@ -611,6 +588,7 @@
     const size = viewer.world.getItem(0).getContentSize();
     IMG_W = size.x;
     IMG_H = size.y;
+    console.log("✓ Plano cargado:", IMG_W, "x", IMG_H);
     renderMarkers();
   });
 
@@ -625,7 +603,6 @@
     );
   }
 
-  /* clic/toque sobre el plano: si hay un solar en modo "ubicar", coloca el marcador */
   viewer.addHandler("canvas-click", (event) => {
     if (!placementLotId || !event.quick) return;
     const viewportPoint = viewer.viewport.pointFromPixel(event.position);
@@ -649,11 +626,9 @@
   $("#btnZoomOut").addEventListener("click", () => viewer.viewport.zoomBy(1 / 1.3));
   $("#btnZoomReset").addEventListener("click", () => viewer.viewport.goHome());
 
-  /* --- cargar el plano del proyecto activo en el visor --- */
   function openProjectInViewer() {
     const p = P();
     viewerReady = false;
-    // liberar los MouseTracker de los marcadores actuales antes de limpiar
     shownMarkerIds.forEach((id) => {
       const el = document.getElementById("marker-" + id);
       if (el && el._tracker) { try { el._tracker.destroy(); } catch (e) {} }
@@ -662,17 +637,17 @@
     shownMarkerIds.clear();
     IMG_W = p.imgW; IMG_H = p.imgH;
     if (!isMapFullscreen) mapViewportEl.style.aspectRatio = p.imgW + " / " + p.imgH;
-    viewer.open(p.dzi); // dispara el handler "open" -> mide el plano real y dibuja marcadores
+    console.log("📂 Abriendo proyecto:", p.key);
+    viewer.open(p.dzi);
   }
 
   /* ---------------------------------------------------------------
-     11b. CAMBIO DE PESTAÑA (proyecto)
+     11b. CAMBIO DE PESTAÑA
   ----------------------------------------------------------------- */
   function switchProject(projKey) {
     if (!PROJECTS[projKey] || projKey === activeProject) return;
     activeProject = projKey;
 
-    // cerrar cosas que pertenecían al proyecto anterior
     exitPlacementMode();
     closeModals();
     $("#searchInput").value = "";
@@ -681,7 +656,7 @@
 
     renderProjectChrome();
     renderAll();
-    openProjectInViewer(); // los marcadores se dibujan cuando el nuevo plano termina de cargar
+    openProjectInViewer();
 
     if (isAdmin && !$("#adminPanel").hidden) renderAdminTable();
   }
@@ -691,7 +666,7 @@
   });
 
   /* ---------------------------------------------------------------
-     11c. PANTALLA COMPLETA DEL PLANO (móvil y escritorio)
+     11c. PANTALLA COMPLETA
   ----------------------------------------------------------------- */
   const mapPanel = $("#mapPanel");
   let isMapFullscreen = false;
@@ -718,7 +693,7 @@
   });
 
   /* ---------------------------------------------------------------
-     12. MODAL DE DETALLE / EDICIÓN DE UN SOLAR
+     12. MODAL DE DETALLE
   ----------------------------------------------------------------- */
   let activeLotId = null;
 
@@ -732,7 +707,6 @@
     $("#lotModalStatusText").textContent = STATUS_LABEL[lot.status];
     $("#lotModalUpdated").textContent = fmtDate(lot.updatedAt);
 
-    // --- info pública: precio y fecha de reserva (la ve todo el mundo) ---
     const priceTxt = fmtPrice(lot.price, lot.currency);
     $("#lotModalPrice").textContent = priceTxt ? priceTxt : "A consultar";
     const reservedRow = $("#lotModalReservedRow");
@@ -769,14 +743,12 @@
   $("#btnCloseLotModal").addEventListener("click", closeModals);
   $("#lotBackdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeModals(); });
 
-  // reúne lo que el admin escribió en el modal (estado, precio, moneda, fecha, nota)
   function collectLotModalPatch() {
     const status = $("#lotModalStatusSelect").value;
     const rawPrice = $("#lotModalPriceInput").value.trim();
     const price = rawPrice === "" ? null : Number(rawPrice.replace(/,/g, ""));
     const currency = $("#lotModalCurrency").value;
     let reservedDate = $("#lotModalDateInput").value || null;
-    // si pasa a reservado/vendido y no hay fecha, se pone la de hoy automáticamente
     if (status !== "disponible" && !reservedDate) reservedDate = todayISODate();
     return {
       status,
@@ -797,7 +769,7 @@
   $("#btnRemoveMarker").addEventListener("click", () => {
     if (!activeLotId) return;
     updateLot(activeLotId, { x: null, y: null });
-    toast(`Marcador del Solar #${activeLotId} eliminado del plano`);
+    toast(`Marcador del Solar #${activeLotId} eliminado`);
     openLotModal(activeLotId);
   });
 
@@ -865,7 +837,7 @@
   });
 
   /* ---------------------------------------------------------------
-     14. FILTROS DE LA LISTA DE RESERVAS
+     14. FILTROS
   ----------------------------------------------------------------- */
   $$(".chip").forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -877,7 +849,7 @@
   });
 
   /* ---------------------------------------------------------------
-     14b. SIDEBAR PLEGABLE (móvil)
+     14b. SIDEBAR MÓVIL
   ----------------------------------------------------------------- */
   const sidebarEl = $(".sidebar");
   $("#btnSidebarToggle").addEventListener("click", () => {
@@ -891,10 +863,10 @@
   }
 
   /* ---------------------------------------------------------------
-     15. BUSCADOR DE SOLAR (en el proyecto activo)
+     15. BUSCADOR
   ----------------------------------------------------------------- */
   function locateLot(id) {
-    if (!currentState()[id]) { toast("No existe el solar #" + id + " en este proyecto"); return false; }
+    if (!currentState()[id]) { toast("No existe el solar #" + id); return false; }
     const lot = currentState()[id];
 
     if (lot.x != null && lot.y != null && viewerReady) {
@@ -935,16 +907,16 @@
   $("#btnSearchGo").addEventListener("click", performSearch);
 
   /* ---------------------------------------------------------------
-     15b. BOTÓN "MARCAR" (solo admin)
+     15b. BOTÓN MARCAR
   ----------------------------------------------------------------- */
   $("#btnAdminMark").addEventListener("click", () => {
     const id = $("#searchInput").value.trim();
     if (!id) {
-      toast("Escribe primero el número del solar a marcar");
+      toast("Escribe el número del solar");
       $("#searchInput").focus();
       return;
     }
-    if (!currentState()[id]) { toast("No existe el solar #" + id + " en este proyecto"); return; }
+    if (!currentState()[id]) { toast("No existe el solar #" + id); return; }
     exitFullscreenMap();
     locateLot(id);
     openLotModal(id);
@@ -953,7 +925,9 @@
   /* ---------------------------------------------------------------
      16. INICIO
   ----------------------------------------------------------------- */
+  console.log("=== INICIALIZANDO APP ===");
   mapViewportEl.style.aspectRatio = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
   setAdmin(isAdmin);
   renderAll();
+  console.log("=== APP LISTA ===");
 })();
