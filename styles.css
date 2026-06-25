@@ -223,12 +223,6 @@ body.is-admin .admin-only{ display: inline-flex; }
   width:100%; height:100%; object-fit:contain; display:block;
   user-select:none; -webkit-user-drag:none;
 }
-/* al hacer zoom evitamos el suavizado/difuminado por defecto del navegador,
-   para que el texto y los números del plano se vean más definidos */
-.map-stage img.is-zoomed{
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-}
 .markers-layer{ position:absolute; inset:0; }
 
 .map-panel__hint{

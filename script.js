@@ -391,10 +391,6 @@
   function applyTransform() {
     stage.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
     $("#zoomReadout").textContent = Math.round(view.scale * 100) + "%";
-    // al 100% dejamos el suavizado normal (se ve más natural); al hacer zoom,
-    // forzamos un renderizado más nítido para que los números y rótulos no se
-    // vean borrosos por la interpolación que aplica el navegador al agrandar
-    $("#mapImage").classList.toggle("is-zoomed", view.scale > 1.01);
     rescaleMarkers();
   }
 
