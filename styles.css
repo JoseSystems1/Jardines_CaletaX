@@ -200,30 +200,17 @@ body.is-admin .admin-only{ display: inline-flex; }
 .map-viewport{
   position:relative;
   width:100%;
-  aspect-ratio: 6000 / 3545; /* proporción real de assets/plano-jardines-caleta-x.png — se ajusta sola por JS si cambias la imagen (ver script.js) */
+  aspect-ratio: 10960 / 6476; /* proporción real del plano en alta resolución; ver IMG_W/IMG_H en script.js si se reemplaza la imagen */
   overflow:hidden;
   background:
     linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/24px 24px,
     linear-gradient(90deg, var(--line-soft) 1px, transparent 1px) 0 0/24px 24px,
     #fff;
   border-radius: 6px;
-  cursor: grab;
-  touch-action: none;
+  touch-action: none; /* OpenSeadragon necesita manejar sus propios gestos de pellizco/arrastre */
 }
-.map-viewport.is-dragging{ cursor: grabbing; }
 .map-viewport.is-placing{ cursor: crosshair; }
-
-.map-stage{
-  position:absolute; top:0; left:0;
-  width:100%; height:100%;
-  transform-origin: 0 0;
-  will-change: transform;
-}
-.map-stage img{
-  width:100%; height:100%; object-fit:contain; display:block;
-  user-select:none; -webkit-user-drag:none;
-}
-.markers-layer{ position:absolute; inset:0; }
+.map-viewport .openseadragon-canvas:focus{ outline: none; }
 
 .map-panel__hint{
   margin: 8px 2px 0; font-size: 11.5px; color:#7C95AE; text-align:center;
@@ -238,18 +225,15 @@ body.is-admin .admin-only{ display: inline-flex; }
   background: var(--ink);
 }
 .map-panel.is-fullscreen .map-panel__reg{ display:none; }
-/* en pantalla completa, el ancho/alto exacto del visor se calcula y se fija
-   por JavaScript (ver sizeFullscreenViewport en script.js) porque aspect-ratio
-   combinado con width:auto no tiene suficiente información para dimensionarse
-   solo dentro de un contenedor flex centrado */
-.map-panel.is-fullscreen .map-viewport{ flex: none; aspect-ratio: auto; }
+/* en pantalla completa dejamos que el contenedor ocupe todo el espacio disponible;
+   OpenSeadragon encuadra el plano completo dentro de ese espacio automáticamente
+   (como "letterbox"), sin necesidad de calcular tamaños a mano */
+.map-panel.is-fullscreen .map-viewport{ flex: 1; width: 100%; aspect-ratio: auto; max-height: 100%; }
 .map-panel.is-fullscreen .map-panel__hint{ color:#9DBADB; flex-shrink:0; }
 body.map-fullscreen-active{ overflow: hidden; }
 
-/* ---------- markers ---------- */
+/* ---------- markers (insertados como overlays de OpenSeadragon — ver script.js) ---------- */
 .marker{
-  position:absolute;
-  transform: translate(-50%,-50%);
   display:flex; align-items:center; justify-content:center;
   width:26px; height:26px; border-radius:50%;
   font-size:13px; font-weight:700; color:#fff;

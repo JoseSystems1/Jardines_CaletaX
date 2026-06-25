@@ -104,12 +104,7 @@
       <svg id="iconCollapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
     </button>
 
-    <div class="map-viewport" id="mapViewport">
-      <div class="map-stage" id="mapStage">
-        <img id="mapImage" src="assets/plano-jardines-caleta-x.png?v=2" alt="Plano de la urbanización Jardines de Caleta X con la distribución de los 156 solares" draggable="false">
-        <div class="markers-layer" id="markersLayer"></div>
-      </div>
-    </div>
+    <div class="map-viewport" id="mapViewport" role="img" aria-label="Plano interactivo de la urbanización con la distribución de los 156 solares"></div>
 
     <p class="map-panel__hint">Arrastra para mover el plano · rueda del mouse o pellizco para hacer zoom · doble clic/toque para acercar</p>
   </section>
@@ -221,6 +216,7 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

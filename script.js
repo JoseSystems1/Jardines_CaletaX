@@ -19,8 +19,6 @@
     STORAGE_KEY: "jcx_lots_state_v1",
     SESSION_KEY: "jcx_admin_session_v1",
     POLL_MS: 4000,
-    MIN_SCALE: 1,
-    MAX_SCALE: 12, // antes 6 — permite acercarse más para leer los números de los solares
   };
 
   /* ---------------------------------------------------------------
@@ -212,30 +210,41 @@
   }
 
   /* ---------------------------------------------------------------
-     6. RENDER — marcadores sobre el plano
+     6. RENDER — marcadores sobre el plano (overlays de OpenSeadragon;
+     ver sección 11 más abajo para imageToViewportPoint/viewer)
   ----------------------------------------------------------------- */
+  const shownMarkerIds = new Set();
   function renderMarkers() {
-    const layer = $("#markersLayer");
-    layer.innerHTML = "";
+    if (!viewerReady) return; // el plano (mosaicos) todavía no terminó de cargar
+    const shouldShow = new Set();
     Object.values(state).forEach((lot) => {
-      if (lot.x == null || lot.y == null) return;
-      if (lot.status === "disponible") return;
-      const el = document.createElement("div");
+      if (lot.x == null || lot.y == null || lot.status === "disponible") return;
+      const idStr = String(lot.id);
+      shouldShow.add(idStr);
+      const elId = "marker-" + lot.id;
+      let el = document.getElementById(elId);
+      const point = imageToViewportPoint(lot.x, lot.y);
+      if (!el) {
+        el = document.createElement("div");
+        el.id = elId;
+        el.addEventListener("click", (e) => { e.stopPropagation(); openLotModal(lot.id); });
+        viewer.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
+      } else {
+        viewer.updateOverlay(el, point, OpenSeadragon.Placement.CENTER);
+      }
       el.className = "marker marker--" + lot.status;
-      el.style.left = lot.x + "%";
-      el.style.top = lot.y + "%";
-      el.style.transform = `translate(-50%,-50%) scale(${1 / view.scale})`;
       el.title = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status];
       el.textContent = lot.status === "vendido" ? "✕" : "●";
-      el.addEventListener("click", (e) => { e.stopPropagation(); openLotModal(lot.id); });
-      layer.appendChild(el);
     });
-  }
-
-  function rescaleMarkers() {
-    $$(".marker").forEach((el) => {
-      el.style.transform = `translate(-50%,-50%) scale(${1 / view.scale})`;
+    // quita los marcadores de solares que ya no deben mostrarse (se desmarcaron o se quitó el pin)
+    shownMarkerIds.forEach((id) => {
+      if (!shouldShow.has(id)) {
+        const el = document.getElementById("marker-" + id);
+        if (el) { viewer.removeOverlay(el); el.remove(); }
+      }
     });
+    shownMarkerIds.clear();
+    shouldShow.forEach((id) => shownMarkerIds.add(id));
   }
 
   /* ---------------------------------------------------------------
@@ -382,158 +391,61 @@
   });
 
   /* ---------------------------------------------------------------
-     11. VISOR DEL PLANO — zoom y paneo
+     11. VISOR DEL PLANO — OpenSeadragon (zoom profesional por mosaicos)
+     -----------------------------------------------------------------
+     En vez de cargar una sola imagen y "estirarla" con CSS al hacer zoom
+     (lo cual se ve borroso en muchos celulares, sin importar qué tan
+     grande sea el archivo original), este visor funciona como Google
+     Maps: la imagen está pre-cortada en miles de mosaicos pequeños en
+     varios niveles de detalle (ver assets/dzi/), y el visor descarga
+     SOLO los mosaicos de la zona y el nivel de zoom que estás mirando
+     en cada momento — con el detalle real del plano, no una ampliación
+     artificial.
   ----------------------------------------------------------------- */
-  const viewport = $("#mapViewport");
-  const stage = $("#mapStage");
-  const view = { scale: 1, tx: 0, ty: 0 };
+  const mapPanel = $("#mapPanel");
+  let viewerReady = false;
+  let IMG_W = 10960, IMG_H = 6476; // tamaño de respaldo; se reemplaza por el real en cuanto carga assets/dzi/plano.dzi
 
-  function applyTransform() {
-    stage.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`;
-    $("#zoomReadout").textContent = Math.round(view.scale * 100) + "%";
-    rescaleMarkers();
+  const viewer = OpenSeadragon({
+    element: $("#mapViewport"),
+    prefixUrl: "https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/images/",
+    tileSources: "assets/dzi/plano.dzi",
+    showNavigationControl: false,
+    gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
+    gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: true },
+    maxZoomPixelRatio: 4,      // permite acercarse más allá de la resolución nativa sin verse "a bloques"
+    visibilityRatio: 1,
+    constrainDuringPan: true,
+    animationTime: 0.4,
+    springStiffness: 8,
+  });
+
+  viewer.addHandler("open", () => {
+    viewerReady = true;
+    const size = viewer.world.getItem(0).getContentSize();
+    IMG_W = size.x;
+    IMG_H = size.y;
+    renderAll(); // dibuja los marcadores que ya existieran guardados, ahora que el plano está listo
+  });
+
+  viewer.addHandler("zoom", () => {
+    const pct = Math.round((viewer.viewport.getZoom() / viewer.viewport.getHomeZoom()) * 100);
+    $("#zoomReadout").textContent = pct + "%";
+  });
+
+  function imageToViewportPoint(xPct, yPct) {
+    return viewer.viewport.imageToViewportCoordinates(
+      new OpenSeadragon.Point((xPct / 100) * IMG_W, (yPct / 100) * IMG_H)
+    );
   }
 
-  function clampScale(s) { return Math.min(CONFIG.MAX_SCALE, Math.max(CONFIG.MIN_SCALE, s)); }
-
-  function zoomAt(clientX, clientY, factor) {
-    const rect = viewport.getBoundingClientRect();
-    const cx = clientX - rect.left;
-    const cy = clientY - rect.top;
-    const prev = view.scale;
-    const next = clampScale(prev * factor);
-    if (next === prev) return;
-    view.tx = cx - ((cx - view.tx) * (next / prev));
-    view.ty = cy - ((cy - view.ty) * (next / prev));
-    view.scale = next;
-    clampPan();
-    applyTransform();
-  }
-
-  function clampPan() {
-    const rect = viewport.getBoundingClientRect();
-    const w = rect.width * view.scale;
-    const h = rect.height * view.scale;
-    const minTx = Math.min(0, rect.width - w);
-    const minTy = Math.min(0, rect.height - h);
-    view.tx = Math.min(0, Math.max(minTx, view.tx));
-    view.ty = Math.min(0, Math.max(minTy, view.ty));
-  }
-
-  function resetView() {
-    view.scale = 1; view.tx = 0; view.ty = 0;
-    applyTransform();
-  }
-
-  // rueda del mouse
-  viewport.addEventListener("wheel", (e) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
-    zoomAt(e.clientX, e.clientY, factor);
-  }, { passive: false });
-
-  // arrastre con mouse
-  let dragging = false, dragStart = null, moved = false;
-  viewport.addEventListener("mousedown", (e) => {
-    dragging = true; moved = false;
-    dragStart = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
-    viewport.classList.add("is-dragging");
-  });
-  window.addEventListener("mousemove", (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-    view.tx = dragStart.tx + dx;
-    view.ty = dragStart.ty + dy;
-    clampPan();
-    applyTransform();
-  });
-  window.addEventListener("mouseup", (e) => {
-    if (!dragging) return;
-    dragging = false;
-    viewport.classList.remove("is-dragging");
-    if (!moved) handleStageClick(e);
-  });
-
-  // doble clic para acercar
-  viewport.addEventListener("dblclick", (e) => zoomAt(e.clientX, e.clientY, 1.6));
-
-  // touch: paneo de un dedo + pellizco de dos dedos
-  let touchState = null;
-  let lastTapTime = 0;
-  viewport.addEventListener("touchstart", (e) => {
-    if (e.touches.length === 1) {
-      touchState = { mode: "pan", x: e.touches[0].clientX, y: e.touches[0].clientY, tx: view.tx, ty: view.ty, moved: false };
-    } else if (e.touches.length === 2) {
-      const [a, b] = e.touches;
-      touchState = {
-        mode: "pinch",
-        dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-        scale: view.scale,
-        midX: (a.clientX + b.clientX) / 2,
-        midY: (a.clientY + b.clientY) / 2,
-      };
-    }
-  }, { passive: true });
-
-  viewport.addEventListener("touchmove", (e) => {
-    if (!touchState) return;
-    if (touchState.mode === "pan" && e.touches.length === 1) {
-      const dx = e.touches[0].clientX - touchState.x;
-      const dy = e.touches[0].clientY - touchState.y;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) touchState.moved = true;
-      view.tx = touchState.tx + dx;
-      view.ty = touchState.ty + dy;
-      clampPan();
-      applyTransform();
-    } else if (touchState.mode === "pinch" && e.touches.length === 2) {
-      const [a, b] = e.touches;
-      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      const factor = dist / touchState.dist;
-      const rect = viewport.getBoundingClientRect();
-      const cx = touchState.midX - rect.left, cy = touchState.midY - rect.top;
-      const prev = view.scale;
-      const next = clampScale(touchState.scale * factor);
-      view.tx = cx - ((cx - view.tx) * (next / prev));
-      view.ty = cy - ((cy - view.ty) * (next / prev));
-      view.scale = next;
-      clampPan();
-      applyTransform();
-    }
-  }, { passive: true });
-
-  viewport.addEventListener("touchend", (e) => {
-    if (touchState && touchState.mode === "pan" && !touchState.moved && e.changedTouches[0]) {
-      const now = Date.now();
-      const pt = e.changedTouches[0];
-      // doble toque rápido en el mismo punto = acercar (equivalente táctil del doble clic)
-      if (now - lastTapTime < 320) {
-        zoomAt(pt.clientX, pt.clientY, 1.6);
-        lastTapTime = 0;
-      } else {
-        lastTapTime = now;
-        handleStageClick(pt);
-      }
-    }
-    touchState = null;
-  });
-
-  $("#btnZoomIn").addEventListener("click", () => {
-    const r = viewport.getBoundingClientRect();
-    zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.3);
-  });
-  $("#btnZoomOut").addEventListener("click", () => {
-    const r = viewport.getBoundingClientRect();
-    zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.3);
-  });
-  $("#btnZoomReset").addEventListener("click", resetView);
-
-  /* clic/toque sobre el plano: si hay un solar en modo "ubicar", coloca el marcador */
-  function handleStageClick(pointLike) {
-    if (!placementLotId) return;
-    const rect = stage.getBoundingClientRect();
-    let xPct = ((pointLike.clientX - rect.left) / rect.width) * 100;
-    let yPct = ((pointLike.clientY - rect.top) / rect.height) * 100;
+  /* clic/toque sobre el plano: si hay un solar en modo "ubicar", coloca el marcador ahí */
+  viewer.addHandler("canvas-click", (event) => {
+    if (!placementLotId || !event.quick) return; // event.quick = toque sin arrastrar (no fue para mover el plano)
+    const viewportPoint = viewer.viewport.pointFromPixel(event.position);
+    const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
+    let xPct = (imagePoint.x / IMG_W) * 100;
+    let yPct = (imagePoint.y / IMG_H) * 100;
     xPct = Math.max(0, Math.min(100, xPct));
     yPct = Math.max(0, Math.min(100, yPct));
     const lot = state[placementLotId];
@@ -542,47 +454,20 @@
     updateLot(placementLotId, patch);
     toast(`Marcador colocado en el Solar #${placementLotId}`);
     exitPlacementMode();
-  }
+  });
+
+  $("#btnZoomIn").addEventListener("click", () => viewer.viewport.zoomBy(1.3));
+  $("#btnZoomOut").addEventListener("click", () => viewer.viewport.zoomBy(1 / 1.3));
+  $("#btnZoomReset").addEventListener("click", () => viewer.viewport.goHome());
 
   /* ---------------------------------------------------------------
      11b. PANTALLA COMPLETA DEL PLANO (móvil y escritorio)
+     -----------------------------------------------------------------
+     OpenSeadragon detecta solo el cambio de tamaño del contenedor y
+     reencuadra el plano completo dentro del espacio disponible — ya
+     no hace falta calcular ancho/alto a mano como antes.
   ----------------------------------------------------------------- */
-  const mapPanel = $("#mapPanel");
-  const mapImageEl = $("#mapImage");
   let isMapFullscreen = false;
-  let imageRatio = 6000 / 3545; // valor de respaldo; se reemplaza por el tamaño real de la imagen en cuanto carga
-
-  function syncImageRatio() {
-    if (mapImageEl.naturalWidth && mapImageEl.naturalHeight) {
-      imageRatio = mapImageEl.naturalWidth / mapImageEl.naturalHeight;
-      // ajusta el visor a la proporción real de la imagen actual (por si se reemplaza el archivo más adelante
-      // con otra de proporciones distintas, sin tener que editar el CSS a mano)
-      viewport.style.aspectRatio = mapImageEl.naturalWidth + " / " + mapImageEl.naturalHeight;
-    }
-  }
-  if (mapImageEl.complete) syncImageRatio();
-  mapImageEl.addEventListener("load", syncImageRatio);
-
-  function sizeFullscreenViewport() {
-    if (!isMapFullscreen) return;
-    const ratio = imageRatio;
-    const hint = $(".map-panel__hint");
-    const panelRect = mapPanel.getBoundingClientRect();
-    const hintH = hint ? hint.offsetHeight + 16 : 0;
-    const availW = Math.max(0, panelRect.width - 4);
-    const availH = Math.max(0, panelRect.height - hintH - 4);
-    let w = availW;
-    let h = w / ratio;
-    if (h > availH) {
-      h = availH;
-      w = h * ratio;
-    }
-    viewport.style.width = w + "px";
-    viewport.style.height = h + "px";
-    clampPan();
-    applyTransform();
-  }
-
   function enterFullscreenMap() {
     isMapFullscreen = true;
     mapPanel.classList.add("is-fullscreen");
@@ -590,8 +475,6 @@
     $("#iconExpand").hidden = true;
     $("#iconCollapse").hidden = false;
     $("#btnMapExpand").setAttribute("aria-label", "Salir de pantalla completa");
-    // espera un frame a que el panel termine de ocupar toda la pantalla antes de medir
-    requestAnimationFrame(() => requestAnimationFrame(sizeFullscreenViewport));
   }
   function exitFullscreenMap() {
     if (!isMapFullscreen) return;
@@ -601,17 +484,11 @@
     $("#iconExpand").hidden = false;
     $("#iconCollapse").hidden = true;
     $("#btnMapExpand").setAttribute("aria-label", "Ampliar plano a pantalla completa");
-    // devuelve el visor a su tamaño normal (controlado por CSS, ancho 100% + aspect-ratio)
-    viewport.style.width = "";
-    viewport.style.height = "";
-    requestAnimationFrame(clampPan);
   }
   $("#btnMapExpand").addEventListener("click", () => {
     if (isMapFullscreen) exitFullscreenMap();
     else enterFullscreenMap();
   });
-  window.addEventListener("resize", () => { if (isMapFullscreen) sizeFullscreenViewport(); });
-  window.addEventListener("orientationchange", () => { if (isMapFullscreen) setTimeout(sizeFullscreenViewport, 200); });
 
   /* ---------------------------------------------------------------
      12. MODAL DE DETALLE / EDICIÓN DE UN SOLAR
@@ -768,13 +645,10 @@
     const lot = state[id];
 
     // si ya hay marcador, centra el plano en ese punto con zoom
-    if (lot.x != null && lot.y != null) {
-      view.scale = clampScale(3);
-      const rect = viewport.getBoundingClientRect();
-      view.tx = rect.width / 2 - (lot.x / 100) * rect.width * view.scale;
-      view.ty = rect.height / 2 - (lot.y / 100) * rect.height * view.scale;
-      clampPan();
-      applyTransform();
+    if (lot.x != null && lot.y != null && viewerReady) {
+      const point = imageToViewportPoint(lot.x, lot.y);
+      viewer.viewport.panTo(point, false);
+      viewer.viewport.zoomTo(viewer.viewport.getHomeZoom() * 7, null, false);
     }
 
     // resalta la fila en la lista (cambia a "todos" si hace falta, y despliega la lista en móvil)
@@ -831,6 +705,5 @@
      16. INICIO
   ----------------------------------------------------------------- */
   setAdmin(isAdmin); // restaura sesión si ya había una
-  applyTransform();
   renderAll();
 })();
