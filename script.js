@@ -19,18 +19,11 @@
   console.log("✓ Supabase URL:", SUPABASE_URL);
   console.log("✓ window.supabase existe?", typeof window.supabase !== "undefined");
 
-  // FORZAR el uso de Supabase
   const USE_SUPABASE = typeof window.supabase !== "undefined";
   console.log("✓ USE_SUPABASE =", USE_SUPABASE);
 
   const sb = USE_SUPABASE ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
   console.log("✓ Cliente Supabase:", sb ? "✅ CONECTADO" : "❌ NO CONECTADO");
-
-  if (sb) {
-    console.log("✓ Supabase está activado - usando BD en tiempo real");
-  } else {
-    console.warn("⚠️ Supabase NO está disponible - usando localStorage local");
-  }
 
   /* ---------------------------------------------------------------
      1. DATOS BASE DE CADA PROYECTO
@@ -202,26 +195,30 @@
 
   async function loadStateFromSupabase() {
     if (!sb) {
-      console.warn("⚠️ Supabase no disponible, usando localStorage");
+      console.warn("⚠️ Supabase no disponible");
       return;
     }
     console.log("📡 Cargando datos de Supabase...");
-    const { data, error } = await sb.from("lots").select("*").order("project").order("id");
-    if (error || !data || data.length === 0) {
-      console.warn("❌ Error al cargar Supabase:", error);
-      toast("No se pudo conectar a la base de datos");
-      return;
+    try {
+      const { data, error } = await sb.from("lots").select("*").order("project").order("id");
+      if (error || !data || data.length === 0) {
+        console.warn("❌ Error al cargar Supabase:", error);
+        return;
+      }
+      console.log("✅ Datos cargados:", data.length, "registros");
+      const fresh = { x: defaultState("x"), ix: defaultState("ix") };
+      data.forEach((row) => {
+        const pk = row.project;
+        if (fresh[pk] && fresh[pk][row.id]) {
+          fresh[pk][row.id] = rowToLot(row);
+        }
+      });
+      states.x = fresh.x;
+      states.ix = fresh.ix;
+      console.log("✅ Estados sincronizados desde Supabase");
+    } catch (err) {
+      console.error("❌ Error sincronizando Supabase:", err);
     }
-    console.log("✅ Datos cargados de Supabase:", data.length, "registros");
-    const fresh = { x: defaultState("x"), ix: defaultState("ix") };
-    data.forEach((row) => {
-      const pk = row.project;
-      if (fresh[pk] && fresh[pk][row.id]) fresh[pk][row.id] = rowToLot(row);
-    });
-    states.x = fresh.x;
-    states.ix = fresh.ix;
-    renderAll();
-    renderTabsMeta();
   }
 
   function subscribeRealtime() {
@@ -229,7 +226,7 @@
     console.log("🔔 Suscribiendo a cambios en tiempo real...");
     sb.channel("lots-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "lots" }, (payload) => {
-        console.log("🔔 Cambio detectado en BD:", payload.eventType);
+        console.log("🔔 Cambio en BD:", payload.eventType);
         const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
         if (!row || row.id == null) return;
         if (payload.eventType === "DELETE") return;
@@ -239,11 +236,6 @@
         if (pk === activeProject) renderAll(); else renderTabsMeta();
       })
       .subscribe();
-  }
-
-  if (sb) {
-    loadStateFromSupabase();
-    subscribeRealtime();
   }
 
   /* ---------------------------------------------------------------
@@ -511,9 +503,9 @@
         .then(({ error }) => {
           if (error) {
             console.warn("❌ Error guardando en Supabase:", error);
-            toast("⚠️ Error al guardar en BD");
+            toast("⚠️ Error al guardar");
           } else {
-            console.log("✅ Solar #" + id + " guardado en Supabase");
+            console.log("✅ Solar #" + id + " guardado");
           }
         });
     } else {
@@ -923,11 +915,33 @@
   });
 
   /* ---------------------------------------------------------------
-     16. INICIO
+     16. INICIALIZACIÓN (ESPERA A SUPABASE PRIMERO)
   ----------------------------------------------------------------- */
-  console.log("=== INICIALIZANDO APP ===");
-  mapViewportEl.style.aspectRatio = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
-  setAdmin(isAdmin);
-  renderAll();
-  console.log("=== APP LISTA ===");
+  async function initializeApp() {
+    console.log("⏳ Inicializando aplicación...");
+    
+    // Cargar datos de Supabase
+    if (sb) {
+      await loadStateFromSupabase();
+      subscribeRealtime();
+    }
+    
+    // Configurar DOM
+    mapViewportEl.style.aspectRatio = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
+    setAdmin(isAdmin);
+    
+    // AHORA renderizar
+    renderAll();
+    
+    console.log("✅ === APP LISTA ===");
+  }
+
+  // Esperar a que el DOM esté listo
+  if (document.readyState === 'loading') {
+    console.log("📄 DOM aún cargando, esperando...");
+    document.addEventListener('DOMContentLoaded', initializeApp);
+  } else {
+    console.log("📄 DOM ya listo, inicializando app...");
+    initializeApp();
+  }
 })();
