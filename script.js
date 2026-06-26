@@ -168,12 +168,12 @@
     channel.onmessage = (ev) => {
       if (ev && ev.data && ev.data.type === "update") {
         const pk = ev.data.project;
-        if (PROJECTS[pk]) { states[pk] = loadLocalState(pk); if (pk === activeProject) renderAll(); else renderTabsMeta(); }
+        if (PROJECTS[pk]) { states[pk] = loadLocalState(pk); repaintMarkers(pk); if (pk === activeProject) renderAll(); else renderTabsMeta(); }
       }
     };
     window.addEventListener("storage", (ev) => {
       ["x", "ix"].forEach((pk) => {
-        if (ev.key === storageKey(pk)) { states[pk] = loadLocalState(pk); if (pk === activeProject) renderAll(); else renderTabsMeta(); }
+        if (ev.key === storageKey(pk)) { states[pk] = loadLocalState(pk); repaintMarkers(pk); if (pk === activeProject) renderAll(); else renderTabsMeta(); }
       });
     });
   }
@@ -216,6 +216,12 @@
       states.x = fresh.x;
       states.ix = fresh.ix;
       console.log("✅ Estados sincronizados desde Supabase");
+      ["x", "ix"].forEach((pk) => {
+        const arr = Object.values(states[pk]);
+        const conCoords = arr.filter((l) => l.x != null && l.y != null).length;
+        const marcados = arr.filter((l) => l.status !== "disponible").length;
+        console.log(`   • ${pk.toUpperCase()}: ${arr.length} solares · ${conCoords} con coordenadas · ${marcados} reservados/vendidos`);
+      });
     } catch (err) {
       console.error("❌ Error sincronizando Supabase:", err);
     }
@@ -233,6 +239,7 @@
         const pk = row.project;
         if (!PROJECTS[pk]) return;
         states[pk][row.id] = rowToLot(row);
+        repaintMarkers(pk);
         if (pk === activeProject) renderAll(); else renderTabsMeta();
       })
       .subscribe();
@@ -328,64 +335,49 @@
   }
 
   /* ---------------------------------------------------------------
-     6. MARCADORES
-     - Cada marcador tiene un id DOM con prefijo de proyecto
-       (marker-x-52 / marker-ix-52) para que X e IX nunca se pisen.
-     - renderMarkers solo dibuja cuando el plano del proyecto activo
-       ya está cargado en el visor (viewerProject === activeProject),
-       evitando dibujar con las dimensiones del plano anterior.
-     - Los datos viven en `states` (cargados de Supabase) y NO se borran
-       al cambiar de pestaña: por eso los marcadores son permanentes.
+     6. MARCADORES  (un juego de marcadores por proyecto, independientes)
+     - Cada proyecto tiene su PROPIO visor (OSD.x / OSD.ix). Por eso sus
+       marcadores nunca se mezclan ni se borran al cambiar de pestaña.
+     - repaintMarkers(pk) borra y vuelve a pintar SOLO el visor de ese
+       proyecto, leyendo de states[pk]. Es 100% idempotente.
   ----------------------------------------------------------------- */
-  let viewerProject = null;            // qué proyecto está realmente cargado en el visor
-  const shownMarkerIds = new Set();    // ids DOM de los marcadores actualmente dibujados
-
-  function markerElId(lotId) { return "marker-" + activeProject + "-" + lotId; }
-
-  function renderMarkers() {
-    if (!viewerReady) return;
-    if (viewerProject !== activeProject) return; // el plano correcto aún no está cargado
-    const shouldShow = new Set();
-    Object.values(currentState()).forEach((lot) => {
+  function repaintMarkers(pk) {
+    pk = pk || activeProject;
+    const v = OSD[pk];
+    const info = VW[pk];
+    if (!v || !info || !info.ready) return;
+    v.clearOverlays(); // en esta app los overlays se usan SOLO para marcadores
+    let drawn = 0;
+    const sinUbicar = [];
+    Object.values(states[pk]).forEach((lot) => {
       try {
-        if (lot.x == null || lot.y == null || lot.status === "disponible") return;
-        const elId = markerElId(lot.id);
-        shouldShow.add(elId);
-        let el = document.getElementById(elId);
-        const point = imageToViewportPoint(lot.x, lot.y);
-        if (!el) {
-          el = document.createElement("div");
-          el.id = elId;
-          const lotId = lot.id;
-          const openThis = (ev) => { if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); } openLotModal(lotId); };
-          viewer.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
-          el.addEventListener("click", openThis);
-          el.addEventListener("touchend", openThis, { passive: false });
-          try {
-            el._tracker = new OpenSeadragon.MouseTracker({
-              element: el,
-              clickHandler: (e) => { if (e.quick) openLotModal(lotId); },
-            });
-            if (el._tracker.setTracking) el._tracker.setTracking(true);
-          } catch (err) { }
-        } else {
-          viewer.updateOverlay(el, point, OpenSeadragon.Placement.CENTER);
-        }
+        if (lot.status === "disponible") return;
+        if (lot.x == null || lot.y == null) { sinUbicar.push(lot.id); return; }
+        const el = document.createElement("div");
         el.className = "marker marker--" + lot.status;
+        el.textContent = lot.status === "vendido" ? "✕" : "●";
         const pTxt = fmtPrice(lot.price, lot.currency);
         el.title = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status] + (pTxt ? " · " + pTxt : "");
-        el.textContent = lot.status === "vendido" ? "✕" : "●";
+        const lotId = lot.id;
+        const openThis = (ev) => {
+          if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); }
+          openLotModal(lotId);
+        };
+        el.addEventListener("click", openThis);
+        el.addEventListener("touchend", openThis, { passive: false });
+        const point = v.viewport.imageToViewportCoordinates(
+          new OpenSeadragon.Point((lot.x / 100) * info.W, (lot.y / 100) * info.H)
+        );
+        v.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
+        drawn++;
       } catch (err) { console.warn("Error dibujando marcador:", lot && lot.id, err); }
     });
-    shownMarkerIds.forEach((elId) => {
-      if (!shouldShow.has(elId)) {
-        const el = document.getElementById(elId);
-        if (el) { if (el._tracker) { try { el._tracker.destroy(); } catch (e) {} } viewer.removeOverlay(el); el.remove(); }
-      }
-    });
-    shownMarkerIds.clear();
-    shouldShow.forEach((elId) => shownMarkerIds.add(elId));
+    console.log(`🟢 Marcadores en ${pk.toUpperCase()}: ${drawn}` +
+                (sinUbicar.length ? ` · sin ubicación en el plano: #${sinUbicar.join(", #")}` : ""));
   }
+
+  // Alias usado por renderAll(): repinta el proyecto visible.
+  function renderMarkers() { repaintMarkers(activeProject); }
 
   /* ---------------------------------------------------------------
      7. LISTA DE RESERVAS
@@ -535,7 +527,7 @@
     placementLotId = String(id);
     $("#placementBanner").hidden = false;
     $("#placementLotLabel").textContent = "Solar #" + id;
-    $("#mapViewport").classList.add("is-placing");
+    activeViewportEl().classList.add("is-placing");
     reopenAdminPanelAfterPlacement = !$("#adminPanel").hidden;
     $("#adminPanel").hidden = true;
     $("#adminOverlay").hidden = true;
@@ -548,7 +540,7 @@
   function exitPlacementMode() {
     placementLotId = null;
     $("#placementBanner").hidden = true;
-    $("#mapViewport").classList.remove("is-placing");
+    activeViewportEl().classList.remove("is-placing");
     if (reopenAdminPanelAfterPlacement && isAdmin) {
       $("#adminPanel").hidden = false;
       $("#adminOverlay").hidden = false;
@@ -566,40 +558,103 @@
   });
 
   /* ---------------------------------------------------------------
-     11. VISOR OpenSeadragon
+     11. VISORES OpenSeadragon  (uno por proyecto, independientes)
   ----------------------------------------------------------------- */
-  let viewerReady = false;
-  let IMG_W = PROJECTS.x.imgW, IMG_H = PROJECTS.x.imgH;
-  const mapViewportEl = $("#mapViewport");
+  const OSD = {}; // OSD.x , OSD.ix  -> instancias OpenSeadragon (se crean al mostrarse)
+  const VW = {    // estado de vista por proyecto
+    x:  { ready: false, built: false, W: PROJECTS.x.imgW,  H: PROJECTS.x.imgH },
+    ix: { ready: false, built: false, W: PROJECTS.ix.imgW, H: PROJECTS.ix.imgH },
+  };
+  let IMG_W = PROJECTS.x.imgW, IMG_H = PROJECTS.x.imgH; // dims del proyecto ACTIVO
 
-  const viewer = OpenSeadragon({
-    element: mapViewportEl,
-    prefixUrl: "https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/images/",
-    tileSources: PROJECTS.x.dzi,
-    showNavigationControl: false,
-    gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
-    gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: true },
-    maxZoomPixelRatio: 4,
-    visibilityRatio: 1,
-    constrainDuringPan: true,
-    animationTime: 0.4,
-    springStiffness: 8,
-  });
+  function viewportEl(pk) { return $("#mapViewport-" + pk); }
+  function activeViewportEl() { return viewportEl(activeProject); }
 
-  viewer.addHandler("open", () => {
-    viewerReady = true;
-    viewerProject = activeProject; // el plano del proyecto activo ya está cargado
-    const size = viewer.world.getItem(0).getContentSize();
-    IMG_W = size.x;
-    IMG_H = size.y;
-    console.log("✓ Plano cargado:", activeProject, IMG_W, "x", IMG_H);
-    renderMarkers();
-  });
+  // Espera a que el visor esté realmente abierto (por evento O por sondeo,
+  // para no depender de atrapar el evento "open" en el momento exacto).
+  function whenViewerOpen(v, cb) {
+    let done = false;
+    const fire = () => { if (done) return; done = true; try { cb(); } catch (e) { console.warn(e); } };
+    if (v.isOpen && v.isOpen()) { fire(); return; }
+    v.addHandler("open", fire);
+    let tries = 0;
+    const iv = setInterval(() => {
+      if (v.isOpen && v.isOpen()) { clearInterval(iv); fire(); }
+      else if (++tries > 100) { clearInterval(iv); }
+    }, 100);
+  }
 
-  viewer.addHandler("zoom", () => {
-    const pct = Math.round((viewer.viewport.getZoom() / viewer.viewport.getHomeZoom()) * 100);
-    $("#zoomReadout").textContent = pct + "%";
-  });
+  // Construye el visor de un proyecto. Solo se llama cuando su contenedor YA
+  // está visible (así OpenSeadragon puede medir el tamaño correctamente).
+  function buildViewer(pk) {
+    if (VW[pk].built) return OSD[pk];
+    VW[pk].built = true;
+    const v = OpenSeadragon({
+      element: viewportEl(pk),
+      prefixUrl: "https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/images/",
+      tileSources: PROJECTS[pk].dzi,
+      showNavigationControl: false,
+      gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
+      gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: true },
+      maxZoomPixelRatio: 4,
+      visibilityRatio: 1,
+      constrainDuringPan: true,
+      animationTime: 0.4,
+      springStiffness: 8,
+    });
+    OSD[pk] = v;
+
+    v.addHandler("open-failed", (e) => {
+      VW[pk].ready = false;
+      console.warn("❌ No se pudo cargar el plano:", pk, e && e.message);
+      toast("⚠️ No se pudo cargar el plano de " + (pk === "ix" ? "Caleta IX" : "Caleta X") +
+            ". Revisa que la carpeta 'assets/" + (pk === "ix" ? "dzi-ix" : "dzi") + "' esté subida.");
+    });
+
+    v.addHandler("zoom", () => {
+      if (pk !== activeProject) return;
+      const pct = Math.round((v.viewport.getZoom() / v.viewport.getHomeZoom()) * 100);
+      $("#zoomReadout").textContent = pct + "%";
+    });
+
+    // Colocación de marcador (botón "Ubicar en el plano") — solo en el visor activo
+    v.addHandler("canvas-click", (event) => {
+      if (pk !== activeProject || !placementLotId || !event.quick) return;
+      const viewportPoint = v.viewport.pointFromPixel(event.position);
+      const imagePoint = v.viewport.viewportToImageCoordinates(viewportPoint);
+      let xPct = (imagePoint.x / VW[pk].W) * 100;
+      let yPct = (imagePoint.y / VW[pk].H) * 100;
+      xPct = Math.max(0, Math.min(100, xPct));
+      yPct = Math.max(0, Math.min(100, yPct));
+      const lot = states[pk][placementLotId];
+      const patch = { x: xPct, y: yPct };
+      if (lot && lot.status === "disponible") {
+        patch.status = "reservado";
+        if (!lot.reservedDate) patch.reservedDate = todayISODate();
+      }
+      updateLot(placementLotId, patch);
+      toast(`Marcador colocado en el Solar #${placementLotId}`);
+      exitPlacementMode();
+    });
+
+    whenViewerOpen(v, () => {
+      const item = v.world.getItemAt(0);
+      if (!item) return;
+      const size = item.getContentSize();
+      VW[pk].W = size.x; VW[pk].H = size.y; VW[pk].ready = true;
+      if (pk === activeProject) { IMG_W = size.x; IMG_H = size.y; }
+      console.log("✓ Plano cargado:", pk, size.x + "x" + size.y);
+      repaintMarkers(pk);
+    });
+
+    return v;
+  }
+
+  // Mostrar solo el contenedor activo y construir SU visor (contenedor visible)
+  viewportEl("x").style.display  = activeProject === "x"  ? "" : "none";
+  viewportEl("ix").style.display = activeProject === "ix" ? "" : "none";
+  buildViewer(activeProject);
+  let viewer = OSD[activeProject]; // puntero al visor ACTIVO (lo usan zoom, búsqueda, etc.)
 
   function imageToViewportPoint(xPct, yPct) {
     return viewer.viewport.imageToViewportCoordinates(
@@ -607,44 +662,9 @@
     );
   }
 
-  viewer.addHandler("canvas-click", (event) => {
-    if (!placementLotId || !event.quick) return;
-    const viewportPoint = viewer.viewport.pointFromPixel(event.position);
-    const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
-    let xPct = (imagePoint.x / IMG_W) * 100;
-    let yPct = (imagePoint.y / IMG_H) * 100;
-    xPct = Math.max(0, Math.min(100, xPct));
-    yPct = Math.max(0, Math.min(100, yPct));
-    const lot = currentState()[placementLotId];
-    const patch = { x: xPct, y: yPct };
-    if (lot.status === "disponible") {
-      patch.status = "reservado";
-      if (!lot.reservedDate) patch.reservedDate = todayISODate();
-    }
-    updateLot(placementLotId, patch);
-    toast(`Marcador colocado en el Solar #${placementLotId}`);
-    exitPlacementMode();
-  });
-
-  $("#btnZoomIn").addEventListener("click", () => viewer.viewport.zoomBy(1.3));
-  $("#btnZoomOut").addEventListener("click", () => viewer.viewport.zoomBy(1 / 1.3));
-  $("#btnZoomReset").addEventListener("click", () => viewer.viewport.goHome());
-
-  function openProjectInViewer() {
-    const p = P();
-    viewerReady = false;
-    viewerProject = null; // mientras carga, no se deben dibujar marcadores
-    shownMarkerIds.forEach((elId) => {
-      const el = document.getElementById(elId);
-      if (el && el._tracker) { try { el._tracker.destroy(); } catch (e) {} }
-    });
-    viewer.clearOverlays();
-    shownMarkerIds.clear();
-    IMG_W = p.imgW; IMG_H = p.imgH;
-    if (!isMapFullscreen) mapViewportEl.style.aspectRatio = p.imgW + " / " + p.imgH;
-    console.log("📂 Abriendo proyecto:", p.key);
-    viewer.open(p.dzi);
-  }
+  $("#btnZoomIn").addEventListener("click", () => { try { viewer.viewport.zoomBy(1.3); } catch (e) {} });
+  $("#btnZoomOut").addEventListener("click", () => { try { viewer.viewport.zoomBy(1 / 1.3); } catch (e) {} });
+  $("#btnZoomReset").addEventListener("click", () => { try { viewer.viewport.goHome(); } catch (e) {} });
 
   /* ---------------------------------------------------------------
      11b. CAMBIO DE PESTAÑA
@@ -653,6 +673,14 @@
     if (!PROJECTS[projKey] || projKey === activeProject) return;
     activeProject = projKey;
 
+    // mostrar/ocultar contenedores ANTES de construir (para que OSD pueda medir)
+    viewportEl("x").style.display  = projKey === "x"  ? "" : "none";
+    viewportEl("ix").style.display = projKey === "ix" ? "" : "none";
+
+    buildViewer(projKey);          // construye su visor la primera vez (contenedor ya visible)
+    viewer = OSD[projKey];         // apunta al visor de este proyecto
+    IMG_W = VW[projKey].W; IMG_H = VW[projKey].H;
+
     exitPlacementMode();
     closeModals();
     $("#searchInput").value = "";
@@ -660,10 +688,17 @@
     $$(".chip").forEach((c) => c.classList.toggle("is-active", c.dataset.filter === "activos"));
 
     renderProjectChrome();
-    renderAll();
-    openProjectInViewer();
+    renderStats();
+    renderTabsMeta();
+    renderLotList();
+    renderAdminTable();
 
-    if (isAdmin && !$("#adminPanel").hidden) renderAdminTable();
+    // el visor estaba oculto: forzar reencuadre/redibujo y repintar marcadores
+    setTimeout(() => {
+      try { viewer.viewport.goHome(true); } catch (e) {}
+      try { viewer.forceRedraw && viewer.forceRedraw(); } catch (e) {}
+      repaintMarkers(projKey);
+    }, 60);
   }
 
   $$(".project-tab").forEach((tab) => {
@@ -695,6 +730,10 @@
   $("#btnMapExpand").addEventListener("click", () => {
     if (isMapFullscreen) exitFullscreenMap();
     else enterFullscreenMap();
+    setTimeout(() => {
+      try { viewer.viewport.goHome(true); } catch (e) {}
+      try { viewer.forceRedraw && viewer.forceRedraw(); } catch (e) {}
+    }, 60);
   });
 
   /* ---------------------------------------------------------------
@@ -874,7 +913,7 @@
     if (!currentState()[id]) { toast("No existe el solar #" + id); return false; }
     const lot = currentState()[id];
 
-    if (lot.x != null && lot.y != null && viewerReady) {
+    if (lot.x != null && lot.y != null && VW[activeProject] && VW[activeProject].ready) {
       const point = imageToViewportPoint(lot.x, lot.y);
       viewer.viewport.panTo(point, false);
       viewer.viewport.zoomTo(viewer.viewport.getHomeZoom() * 7, null, false);
@@ -928,126 +967,6 @@
   });
 
   /* ---------------------------------------------------------------
-     16. MODO CALIBRACIÓN (ubicar solares manualmente)
-  ----------------------------------------------------------------- */
-  let calibrationMode = false;
-  let calibrationLotId = null;
-
-  function startCalibration(lotId) {
-    if (!isAdmin) return;
-    calibrationMode = true;
-    calibrationLotId = String(lotId);
-    $("#mapViewport").classList.add("is-placing");
-    const banner = document.createElement("div");
-    banner.style.cssText = `
-      position: fixed; top: 0; left: 0; right: 0; background: #FF6B35; color: white;
-      padding: 12px; text-align: center; z-index: 100; font-weight: bold; font-size: 14px;
-    `;
-    banner.id = "calibrationBanner";
-    banner.textContent = `🎯 MODO CALIBRACIÓN: Haz click en el plano donde está el Solar #${lotId}`;
-    document.body.insertBefore(banner, document.body.firstChild);
-  }
-
-  function endCalibration() {
-    calibrationMode = false;
-    calibrationLotId = null;
-    $("#mapViewport").classList.remove("is-placing");
-    const banner = document.getElementById("calibrationBanner");
-    if (banner) banner.remove();
-  }
-
-  viewer.addHandler("canvas-click", (event) => {
-    // MODO CALIBRACIÓN: ubicar solar
-    if (calibrationMode && calibrationLotId && event.quick) {
-      const viewportPoint = viewer.viewport.pointFromPixel(event.position);
-      const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
-      let xPct = (imagePoint.x / IMG_W) * 100;
-      let yPct = (imagePoint.y / IMG_H) * 100;
-      xPct = Math.max(0, Math.min(100, xPct));
-      yPct = Math.max(0, Math.min(100, yPct));
-
-      console.log(`📍 Solar #${calibrationLotId}: x=${xPct.toFixed(3)}, y=${yPct.toFixed(3)}`);
-
-      // Guardar en Supabase
-      const patch = { x: xPct, y: yPct, status: "reservado" };
-      updateLot(calibrationLotId, patch);
-      toast(`✅ Solar #${calibrationLotId} ubicado en (${xPct.toFixed(1)}%, ${yPct.toFixed(1)}%)`);
-
-      endCalibration();
-      return;
-    }
-
-    // MODO COLOCACIÓN (original)
-    if (!placementLotId || !event.quick) return;
-    const viewportPoint = viewer.viewport.pointFromPixel(event.position);
-    const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
-    let xPct = (imagePoint.x / IMG_W) * 100;
-    let yPct = (imagePoint.y / IMG_H) * 100;
-    xPct = Math.max(0, Math.min(100, xPct));
-    yPct = Math.max(0, Math.min(100, yPct));
-    const lot = currentState()[placementLotId];
-    const patch = { x: xPct, y: yPct };
-    if (lot.status === "disponible") {
-      patch.status = "reservado";
-      if (!lot.reservedDate) patch.reservedDate = todayISODate();
-    }
-    updateLot(placementLotId, patch);
-    toast(`Marcador colocado en el Solar #${placementLotId}`);
-    exitPlacementMode();
-  });
-
-  /* ---------------------------------------------------------------
-     16b. PANEL DE CALIBRACIÓN (botón rápido)
-  ----------------------------------------------------------------- */
-  // Agregar botón de calibración al header (oculto hasta que sea admin)
-  const calibPanel = document.createElement("div");
-  calibPanel.id = "calibrationPanel";
-  calibPanel.style.cssText = `
-    display: none; position: fixed; bottom: 20px; right: 20px; z-index: 80;
-    background: white; border: 2px solid #FF6B35; border-radius: 10px; padding: 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2); max-width: 280px; font-family: system-ui;
-  `;
-  calibPanel.innerHTML = `
-    <div style="font-size: 12px; font-weight: bold; color: #FF6B35; margin-bottom: 8px;">🎯 CALIBRACIÓN RÁPIDA</div>
-    <input type="number" id="calibrationInput" placeholder="Número de solar (ej. 52)" min="1" max="215"
-      style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 8px; font-size: 14px;">
-    <button id="btnStartCalibration" style="
-      width: 100%; padding: 8px; background: #FF6B35; color: white; border: none;
-      border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;
-    ">Iniciar ubicación</button>
-    <button id="btnCancelCalibration" style="
-      width: 100%; padding: 8px; background: #ccc; color: #333; border: none;
-      border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 13px;
-    ">Cancelar</button>
-  `;
-  document.body.appendChild(calibPanel);
-
-  $("#btnStartCalibration").addEventListener("click", () => {
-    const lotId = $("#calibrationInput").value.trim();
-    if (!lotId) { toast("Escribe el número del solar"); return; }
-    if (!currentState()[lotId]) { toast("Solar #" + lotId + " no existe"); return; }
-    startCalibration(lotId);
-  });
-
-  $("#btnCancelCalibration").addEventListener("click", endCalibration);
-  $("#calibrationInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") $("#btnStartCalibration").click();
-  });
-
-  // Mostrar panel cuando sea admin
-  const origSetAdmin = setAdmin.bind(this);
-  setAdmin = function(value) {
-    origSetAdmin(value);
-    if (value) {
-      calibPanel.style.display = "block";
-      toast("📍 Panel de calibración activo — ubica solares en el plano");
-    } else {
-      calibPanel.style.display = "none";
-      endCalibration();
-    }
-  };
-
-  /* ---------------------------------------------------------------
      17. INICIALIZACIÓN (ESPERA A SUPABASE PRIMERO)
   ----------------------------------------------------------------- */
   async function initializeApp() {
@@ -1060,11 +979,14 @@
     }
 
     // Configurar DOM
-    mapViewportEl.style.aspectRatio = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
+    viewportEl("x").style.aspectRatio  = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
+    viewportEl("ix").style.aspectRatio = PROJECTS.ix.imgW + " / " + PROJECTS.ix.imgH;
     setAdmin(isAdmin);
 
     // AHORA renderizar
     renderAll();
+    repaintMarkers("x");
+    repaintMarkers("ix");
 
     console.log("✅ === APP LISTA ===");
   }
