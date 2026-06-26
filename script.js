@@ -915,7 +915,127 @@
   });
 
   /* ---------------------------------------------------------------
-     16. INICIALIZACIÓN (ESPERA A SUPABASE PRIMERO)
+     16. MODO CALIBRACIÓN (ubicar solares manualmente)
+  ----------------------------------------------------------------- */
+  let calibrationMode = false;
+  let calibrationLotId = null;
+
+  function startCalibration(lotId) {
+    if (!isAdmin) return;
+    calibrationMode = true;
+    calibrationLotId = String(lotId);
+    $("#mapViewport").classList.add("is-placing");
+    const banner = document.createElement("div");
+    banner.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0; background: #FF6B35; color: white;
+      padding: 12px; text-align: center; z-index: 100; font-weight: bold; font-size: 14px;
+    `;
+    banner.id = "calibrationBanner";
+    banner.textContent = `🎯 MODO CALIBRACIÓN: Haz click en el plano donde está el Solar #${lotId}`;
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+
+  function endCalibration() {
+    calibrationMode = false;
+    calibrationLotId = null;
+    $("#mapViewport").classList.remove("is-placing");
+    const banner = document.getElementById("calibrationBanner");
+    if (banner) banner.remove();
+  }
+
+  viewer.addHandler("canvas-click", (event) => {
+    // MODO CALIBRACIÓN: ubicar solar
+    if (calibrationMode && calibrationLotId && event.quick) {
+      const viewportPoint = viewer.viewport.pointFromPixel(event.position);
+      const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
+      let xPct = (imagePoint.x / IMG_W) * 100;
+      let yPct = (imagePoint.y / IMG_H) * 100;
+      xPct = Math.max(0, Math.min(100, xPct));
+      yPct = Math.max(0, Math.min(100, yPct));
+      
+      console.log(`📍 Solar #${calibrationLotId}: x=${xPct.toFixed(3)}, y=${yPct.toFixed(3)}`);
+      
+      // Guardar en Supabase
+      const patch = { x: xPct, y: yPct, status: "reservado" };
+      updateLot(calibrationLotId, patch);
+      toast(`✅ Solar #${calibrationLotId} ubicado en (${xPct.toFixed(1)}%, ${yPct.toFixed(1)}%)`);
+      
+      endCalibration();
+      return;
+    }
+
+    // MODO COLOCACIÓN (original)
+    if (!placementLotId || !event.quick) return;
+    const viewportPoint = viewer.viewport.pointFromPixel(event.position);
+    const imagePoint = viewer.viewport.viewportToImageCoordinates(viewportPoint);
+    let xPct = (imagePoint.x / IMG_W) * 100;
+    let yPct = (imagePoint.y / IMG_H) * 100;
+    xPct = Math.max(0, Math.min(100, xPct));
+    yPct = Math.max(0, Math.min(100, yPct));
+    const lot = currentState()[placementLotId];
+    const patch = { x: xPct, y: yPct };
+    if (lot.status === "disponible") {
+      patch.status = "reservado";
+      if (!lot.reservedDate) patch.reservedDate = todayISODate();
+    }
+    updateLot(placementLotId, patch);
+    toast(`Marcador colocado en el Solar #${placementLotId}`);
+    exitPlacementMode();
+  });
+
+  /* ---------------------------------------------------------------
+     16b. PANEL DE CALIBRACIÓN (botón rápido)
+  ----------------------------------------------------------------- */
+  // Agregar botón de calibración al header (oculto hasta que sea admin)
+  const calibPanel = document.createElement("div");
+  calibPanel.id = "calibrationPanel";
+  calibPanel.style.cssText = `
+    display: none; position: fixed; bottom: 20px; right: 20px; z-index: 80;
+    background: white; border: 2px solid #FF6B35; border-radius: 10px; padding: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2); max-width: 280px; font-family: system-ui;
+  `;
+  calibPanel.innerHTML = `
+    <div style="font-size: 12px; font-weight: bold; color: #FF6B35; margin-bottom: 8px;">🎯 CALIBRACIÓN RÁPIDA</div>
+    <input type="number" id="calibrationInput" placeholder="Número de solar (ej. 52)" min="1" max="215" 
+      style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 8px; font-size: 14px;">
+    <button id="btnStartCalibration" style="
+      width: 100%; padding: 8px; background: #FF6B35; color: white; border: none; 
+      border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;
+    ">Iniciar ubicación</button>
+    <button id="btnCancelCalibration" style="
+      width: 100%; padding: 8px; background: #ccc; color: #333; border: none; 
+      border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 13px;
+    ">Cancelar</button>
+  `;
+  document.body.appendChild(calibPanel);
+
+  $("#btnStartCalibration").addEventListener("click", () => {
+    const lotId = $("#calibrationInput").value.trim();
+    if (!lotId) { toast("Escribe el número del solar"); return; }
+    if (!currentState()[lotId]) { toast("Solar #" + lotId + " no existe"); return; }
+    startCalibration(lotId);
+  });
+
+  $("#btnCancelCalibration").addEventListener("click", endCalibration);
+  $("#calibrationInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") $("#btnStartCalibration").click();
+  });
+
+  // Mostrar panel cuando sea admin
+  const origSetAdmin = setAdmin.bind(this);
+  setAdmin = function(value) {
+    origSetAdmin(value);
+    if (value) {
+      calibPanel.style.display = "block";
+      toast("📍 Panel de calibración activo — ubica solares en el plano");
+    } else {
+      calibPanel.style.display = "none";
+      endCalibration();
+    }
+  };
+
+  /* ---------------------------------------------------------------
+     17. INICIALIZACIÓN (ESPERA A SUPABASE PRIMERO)
   ----------------------------------------------------------------- */
   async function initializeApp() {
     console.log("⏳ Inicializando aplicación...");
