@@ -105,7 +105,7 @@
       title: "Urbanización Jardines de Caleta\u00A0IX",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
       dzi: "assets/dzi-ix/plano.dzi",
-      imgW: 13747, imgH: 14423,
+      imgW: 10300, imgH: 9900,
       lots: LOTS_BASE_IX,
     },
   };
@@ -329,51 +329,62 @@
 
   /* ---------------------------------------------------------------
      6. MARCADORES
+     - Cada marcador tiene un id DOM con prefijo de proyecto
+       (marker-x-52 / marker-ix-52) para que X e IX nunca se pisen.
+     - renderMarkers solo dibuja cuando el plano del proyecto activo
+       ya está cargado en el visor (viewerProject === activeProject),
+       evitando dibujar con las dimensiones del plano anterior.
+     - Los datos viven en `states` (cargados de Supabase) y NO se borran
+       al cambiar de pestaña: por eso los marcadores son permanentes.
   ----------------------------------------------------------------- */
-  const shownMarkerIds = new Set();
+  let viewerProject = null;            // qué proyecto está realmente cargado en el visor
+  const shownMarkerIds = new Set();    // ids DOM de los marcadores actualmente dibujados
+
+  function markerElId(lotId) { return "marker-" + activeProject + "-" + lotId; }
+
   function renderMarkers() {
     if (!viewerReady) return;
+    if (viewerProject !== activeProject) return; // el plano correcto aún no está cargado
     const shouldShow = new Set();
     Object.values(currentState()).forEach((lot) => {
       try {
-      if (lot.x == null || lot.y == null || lot.status === "disponible") return;
-      const idStr = String(lot.id);
-      shouldShow.add(idStr);
-      const elId = "marker-" + lot.id;
-      let el = document.getElementById(elId);
-      const point = imageToViewportPoint(lot.x, lot.y);
-      if (!el) {
-        el = document.createElement("div");
-        el.id = elId;
-        const lotId = lot.id;
-        const openThis = (ev) => { if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); } openLotModal(lotId); };
-        viewer.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
-        el.addEventListener("click", openThis);
-        el.addEventListener("touchend", openThis, { passive: false });
-        try {
-          el._tracker = new OpenSeadragon.MouseTracker({
-            element: el,
-            clickHandler: (e) => { if (e.quick) openLotModal(lotId); },
-          });
-          if (el._tracker.setTracking) el._tracker.setTracking(true);
-        } catch (err) { }
-      } else {
-        viewer.updateOverlay(el, point, OpenSeadragon.Placement.CENTER);
-      }
-      el.className = "marker marker--" + lot.status;
-      const pTxt = fmtPrice(lot.price, lot.currency);
-      el.title = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status] + (pTxt ? " · " + pTxt : "");
-      el.textContent = lot.status === "vendido" ? "✕" : "●";
+        if (lot.x == null || lot.y == null || lot.status === "disponible") return;
+        const elId = markerElId(lot.id);
+        shouldShow.add(elId);
+        let el = document.getElementById(elId);
+        const point = imageToViewportPoint(lot.x, lot.y);
+        if (!el) {
+          el = document.createElement("div");
+          el.id = elId;
+          const lotId = lot.id;
+          const openThis = (ev) => { if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); } openLotModal(lotId); };
+          viewer.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
+          el.addEventListener("click", openThis);
+          el.addEventListener("touchend", openThis, { passive: false });
+          try {
+            el._tracker = new OpenSeadragon.MouseTracker({
+              element: el,
+              clickHandler: (e) => { if (e.quick) openLotModal(lotId); },
+            });
+            if (el._tracker.setTracking) el._tracker.setTracking(true);
+          } catch (err) { }
+        } else {
+          viewer.updateOverlay(el, point, OpenSeadragon.Placement.CENTER);
+        }
+        el.className = "marker marker--" + lot.status;
+        const pTxt = fmtPrice(lot.price, lot.currency);
+        el.title = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status] + (pTxt ? " · " + pTxt : "");
+        el.textContent = lot.status === "vendido" ? "✕" : "●";
       } catch (err) { console.warn("Error dibujando marcador:", lot && lot.id, err); }
     });
-    shownMarkerIds.forEach((id) => {
-      if (!shouldShow.has(id)) {
-        const el = document.getElementById("marker-" + id);
+    shownMarkerIds.forEach((elId) => {
+      if (!shouldShow.has(elId)) {
+        const el = document.getElementById(elId);
         if (el) { if (el._tracker) { try { el._tracker.destroy(); } catch (e) {} } viewer.removeOverlay(el); el.remove(); }
       }
     });
     shownMarkerIds.clear();
-    shouldShow.forEach((id) => shownMarkerIds.add(id));
+    shouldShow.forEach((elId) => shownMarkerIds.add(elId));
   }
 
   /* ---------------------------------------------------------------
@@ -577,10 +588,11 @@
 
   viewer.addHandler("open", () => {
     viewerReady = true;
+    viewerProject = activeProject; // el plano del proyecto activo ya está cargado
     const size = viewer.world.getItem(0).getContentSize();
     IMG_W = size.x;
     IMG_H = size.y;
-    console.log("✓ Plano cargado:", IMG_W, "x", IMG_H);
+    console.log("✓ Plano cargado:", activeProject, IMG_W, "x", IMG_H);
     renderMarkers();
   });
 
@@ -621,8 +633,9 @@
   function openProjectInViewer() {
     const p = P();
     viewerReady = false;
-    shownMarkerIds.forEach((id) => {
-      const el = document.getElementById("marker-" + id);
+    viewerProject = null; // mientras carga, no se deben dibujar marcadores
+    shownMarkerIds.forEach((elId) => {
+      const el = document.getElementById(elId);
       if (el && el._tracker) { try { el._tracker.destroy(); } catch (e) {} }
     });
     viewer.clearOverlays();
@@ -952,14 +965,14 @@
       let yPct = (imagePoint.y / IMG_H) * 100;
       xPct = Math.max(0, Math.min(100, xPct));
       yPct = Math.max(0, Math.min(100, yPct));
-      
+
       console.log(`📍 Solar #${calibrationLotId}: x=${xPct.toFixed(3)}, y=${yPct.toFixed(3)}`);
-      
+
       // Guardar en Supabase
       const patch = { x: xPct, y: yPct, status: "reservado" };
       updateLot(calibrationLotId, patch);
       toast(`✅ Solar #${calibrationLotId} ubicado en (${xPct.toFixed(1)}%, ${yPct.toFixed(1)}%)`);
-      
+
       endCalibration();
       return;
     }
@@ -996,14 +1009,14 @@
   `;
   calibPanel.innerHTML = `
     <div style="font-size: 12px; font-weight: bold; color: #FF6B35; margin-bottom: 8px;">🎯 CALIBRACIÓN RÁPIDA</div>
-    <input type="number" id="calibrationInput" placeholder="Número de solar (ej. 52)" min="1" max="215" 
+    <input type="number" id="calibrationInput" placeholder="Número de solar (ej. 52)" min="1" max="215"
       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 8px; font-size: 14px;">
     <button id="btnStartCalibration" style="
-      width: 100%; padding: 8px; background: #FF6B35; color: white; border: none; 
+      width: 100%; padding: 8px; background: #FF6B35; color: white; border: none;
       border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;
     ">Iniciar ubicación</button>
     <button id="btnCancelCalibration" style="
-      width: 100%; padding: 8px; background: #ccc; color: #333; border: none; 
+      width: 100%; padding: 8px; background: #ccc; color: #333; border: none;
       border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 13px;
     ">Cancelar</button>
   `;
@@ -1039,20 +1052,20 @@
   ----------------------------------------------------------------- */
   async function initializeApp() {
     console.log("⏳ Inicializando aplicación...");
-    
+
     // Cargar datos de Supabase
     if (sb) {
       await loadStateFromSupabase();
       subscribeRealtime();
     }
-    
+
     // Configurar DOM
     mapViewportEl.style.aspectRatio = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
     setAdmin(isAdmin);
-    
+
     // AHORA renderizar
     renderAll();
-    
+
     console.log("✅ === APP LISTA ===");
   }
 
