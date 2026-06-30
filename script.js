@@ -121,7 +121,7 @@
     PROJECTS[projKey].lots.forEach(([id, area]) => {
       obj[id] = {
         id, area, status: "disponible", x: null, y: null, note: "",
-        price: null, currency: "USD", reservedDate: null,
+        price: null, currency: "DOP", reservedDate: null,
         updatedAt: null,
       };
     });
@@ -187,7 +187,7 @@
       y: row.y == null ? null : Number(row.y),
       note: row.note || "",
       price: row.price == null || row.price === "" ? null : Number(row.price),
-      currency: row.currency || "USD",
+      currency: row.currency || "DOP",
       reservedDate: row.reserved_date || null,
       updatedAt: row.updated_at,
     };
@@ -257,6 +257,157 @@
     const sym = CURRENCY_SYMBOL[currency] || "US$";
     return sym + " " + Number(amount).toLocaleString("es-DO", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
+
+  /* ===============================================================
+     3b. TASA DEL DÓLAR (en vivo + tasa fija del admin) + PRECIO EN AMBAS MONEDAS
+     - El admin guarda un PRECIO POR m². El total = área × precio/m² (en RD$).
+     - Para mostrar el equivalente en US$ se usa una tasa USD→DOP.
+     - La "tasa efectiva" es: la tasa FIJA que ponga el admin (si la puso),
+       o si no, la tasa EN VIVO de internet, o si todo falla, la de respaldo.
+     - La tasa fija se guarda en Supabase y se aplica a TODOS (público y admin).
+  =============================================================== */
+  const FALLBACK_RATE = 62;   // respaldo si no hay internet ni tasa fija
+  let liveRate = null;        // tasa traída de internet
+  let manualRate = null;      // tasa fija puesta por el admin (global)
+  let rateLoaded = false;     // true cuando ya cargó la tasa en vivo
+  let usdDopRate = FALLBACK_RATE; // TASA EFECTIVA usada en todos los cálculos
+
+  function recomputeRate() {
+    usdDopRate = (manualRate && manualRate > 0)
+      ? manualRate
+      : (liveRate && liveRate > 0 ? liveRate : FALLBACK_RATE);
+    try { updateRateDisplay(); } catch (e) {}
+    try { renderAll(); } catch (e) {}
+    try { updatePricePreview(); } catch (e) {}
+    try { renderCalc(); } catch (e) {}
+  }
+
+  async function fetchUsdDopRate() {
+    try {
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await res.json();
+      if (data && data.rates && data.rates.DOP) {
+        liveRate = Number(data.rates.DOP);
+        rateLoaded = true;
+        console.log("💱 Tasa USD→DOP en vivo:", liveRate);
+        recomputeRate();
+      }
+    } catch (err) {
+      console.warn("⚠️ No se pudo obtener la tasa del dólar en vivo:", err);
+      recomputeRate();
+    }
+  }
+
+  // Cargar la tasa fija guardada (global) desde Supabase (o localStorage si no hay sb)
+  async function loadManualRate() {
+    try {
+      if (sb) {
+        const { data, error } = await sb.from("app_settings").select("value").eq("key", "usd_rate").maybeSingle();
+        if (!error && data && data.value != null) {
+          const n = Number(data.value);
+          if (!isNaN(n) && n > 0) manualRate = n;
+        }
+      } else {
+        const r = localStorage.getItem("jcx_manual_rate");
+        if (r) { const n = Number(r); if (!isNaN(n) && n > 0) manualRate = n; }
+      }
+    } catch (e) { console.warn("No se pudo cargar la tasa fija:", e); }
+  }
+
+  function subscribeRateRealtime() {
+    if (!sb) return;
+    try {
+      sb.channel("settings-realtime")
+        .on("postgres_changes", { event: "*", schema: "public", table: "app_settings" }, (payload) => {
+          const row = (payload.new && Object.keys(payload.new).length) ? payload.new : payload.old;
+          if (!row || row.key !== "usd_rate") return;
+          if (payload.eventType === "DELETE") { manualRate = null; }
+          else { const n = Number(row.value); manualRate = (!isNaN(n) && n > 0) ? n : null; }
+          recomputeRate();
+        })
+        .subscribe();
+    } catch (e) {}
+  }
+
+  // Guardar / quitar la tasa fija (se aplica a todos al instante)
+  async function saveManualRate(rate) {
+    manualRate = (rate && rate > 0) ? rate : null;
+    recomputeRate();
+    try {
+      if (sb) {
+        if (manualRate) {
+          const { error } = await sb.from("app_settings")
+            .upsert({ key: "usd_rate", value: String(manualRate), updated_at: new Date().toISOString() }, { onConflict: "key" });
+          if (error) { console.warn("❌ Error guardando tasa:", error); toast("⚠️ No se pudo guardar la tasa (¿creaste la tabla app_settings?)"); }
+        } else {
+          await sb.from("app_settings").delete().eq("key", "usd_rate");
+        }
+      } else {
+        if (manualRate) localStorage.setItem("jcx_manual_rate", String(manualRate));
+        else localStorage.removeItem("jcx_manual_rate");
+      }
+    } catch (e) { console.warn("Error guardando tasa:", e); }
+  }
+
+  function rateLabel() {
+    if (manualRate && manualRate > 0) return "tasa fija RD$ " + manualRate.toFixed(2);
+    if (liveRate && liveRate > 0) return "tasa en vivo RD$ " + liveRate.toFixed(2);
+    return "tasa de respaldo RD$ " + FALLBACK_RATE.toFixed(2);
+  }
+
+  // Pinta el apartado de la tasa del dólar en el panel de admin
+  function updateRateDisplay() {
+    const live = $("#rateLive");
+    if (!live) return;
+    live.textContent = liveRate ? ("RD$ " + liveRate.toFixed(2)) : (rateLoaded ? "no disponible" : "cargando…");
+    const eff = $("#rateEffective");
+    if (eff) eff.textContent = "RD$ " + Number(usdDopRate).toFixed(2) + " por US$1";
+    const hint = $("#rateHint");
+    if (hint) {
+      hint.textContent = (manualRate && manualRate > 0)
+        ? "Usando la tasa FIJA del admin para todos los cálculos."
+        : "Usando la tasa EN VIVO automáticamente.";
+    }
+    const inp = $("#rateInput");
+    if (inp && document.activeElement !== inp) {
+      inp.value = (manualRate && manualRate > 0) ? manualRate : (liveRate ? Number(liveRate.toFixed(2)) : "");
+    }
+    const useLive = $("#btnUseLiveRate");
+    if (useLive) useLive.hidden = !(manualRate && manualRate > 0);
+  }
+
+  // El precio por m² SIEMPRE se ingresa y se multiplica en pesos (RD$).
+  // El total en pesos = área × precio/m². El dólar es solo una conversión
+  // para mostrar, con la tasa efectiva (fija del admin o en vivo).
+  function computeTotals(lot) {
+    if (!lot || lot.price == null || isNaN(lot.price)) return null;
+    const perM2 = Number(lot.price);
+    const dop = Number(lot.area) * perM2;        // total en RD$ (la multiplicación)
+    const usd = usdDopRate ? dop / usdDopRate : null; // equivalente en US$
+    return { usd, dop, perM2, total: dop };
+  }
+
+  function fmtMoney(amount, currency) {
+    if (amount == null || isNaN(amount)) return null;
+    const sym = CURRENCY_SYMBOL[currency] || "US$";
+    return sym + " " + Math.round(Number(amount)).toLocaleString("es-DO");
+  }
+
+  // Total mostrado al PÚBLICO de un solar disponible: en US$ y RD$ a la vez.
+  function fmtPriceBoth(lot) {
+    const t = computeTotals(lot);
+    if (!t) return null;
+    return fmtMoney(t.usd, "USD") + " · " + fmtMoney(t.dop, "DOP");
+  }
+
+  // ¿Se puede mostrar el precio a quien está mirando?
+  // - El admin SIEMPRE ve el precio (dato confidencial).
+  // - El público solo ve el precio si el solar está DISPONIBLE.
+  function canSeePrice(lot) {
+    return isAdmin || lot.status === "disponible";
+  }
+
+
   const fmtDateOnly = (val) => {
     if (!val) return "—";
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(val);
@@ -356,8 +507,11 @@
         const el = document.createElement("div");
         el.className = "marker marker--" + lot.status;
         el.textContent = lot.status === "vendido" ? "✕" : "●";
-        const pTxt = fmtPrice(lot.price, lot.currency);
-        el.title = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status] + (pTxt ? " · " + pTxt : "");
+        // Tooltip: el público ve estado + fecha; el admin además ve el precio (confidencial)
+        let tip = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status];
+        if (lot.reservedDate) tip += " · " + fmtDateOnly(lot.reservedDate);
+        if (isAdmin) { const pTxt = fmtPriceBoth(lot); if (pTxt) tip += " · " + pTxt; }
+        el.title = tip;
         const lotId = lot.id;
         const openThis = (ev) => {
           if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); }
@@ -404,12 +558,18 @@
       const li = document.createElement("li");
       li.className = "lot-row";
       li.dataset.lotId = lot.id;
-      const priceTxt = fmtPrice(lot.price, lot.currency);
+      // Precio solo si el solar está disponible o si es admin (confidencial)
+      const priceTxt = canSeePrice(lot) ? fmtPriceBoth(lot) : null;
+      // Para reservado/vendido el público ve la fecha en vez del precio
+      const dateTxt = (lot.status !== "disponible" && lot.reservedDate)
+        ? (lot.status === "vendido" ? "Vendido el " : "Reservado el ") + fmtDateOnly(lot.reservedDate)
+        : null;
       li.innerHTML = `
         <div class="lot-row__badge is-${lot.status}">#${lot.id}</div>
         <div class="lot-row__info">
           <div class="lot-row__title">Solar No. ${lot.id} <span class="lot-row__meta">· ${fmtArea(lot.area)}</span></div>
           <div class="lot-row__status is-${lot.status}">${STATUS_LABEL[lot.status]}</div>
+          ${dateTxt ? `<div class="lot-row__date">${dateTxt}</div>` : ""}
           ${priceTxt ? `<div class="lot-row__price">${priceTxt}</div>` : ""}
         </div>`;
       li.addEventListener("click", () => openLotModal(lot.id));
@@ -433,7 +593,7 @@
       .filter((l) => (statusFilter === "todos" ? true : l.status === statusFilter))
       .forEach((lot) => {
         const tr = document.createElement("tr");
-        const priceTxt = fmtPrice(lot.price, lot.currency);
+        const priceTxt = fmtPriceBoth(lot);
         tr.innerHTML = `
           <td>#${lot.id}</td>
           <td class="area-cell">${fmtArea(lot.area)}</td>
@@ -741,6 +901,36 @@
   ----------------------------------------------------------------- */
   let activeLotId = null;
 
+  // Tasa que el admin tiene escrita en el campo del modal (si es válida), o la global.
+  function modalRate() {
+    const inp = $("#lotModalRateInput");
+    if (inp) {
+      const raw = inp.value.trim();
+      if (raw !== "") { const n = Number(raw.replace(/,/g, "")); if (!isNaN(n) && n > 0) return n; }
+    }
+    return usdDopRate;
+  }
+
+  // Vista previa del TOTAL: área × precio/m² = RD$ ... y su equivalente en US$
+  // usando la tarifa del dólar que el admin escribió.
+  function updatePricePreview() {
+    const preview = $("#lotModalPricePreview");
+    if (!preview) return;
+    const lot = activeLotId ? currentState()[activeLotId] : null;
+    if (!lot || $("#lotModalAdminControls").hidden) { preview.innerHTML = ""; return; }
+    const raw = $("#lotModalPriceInput").value.trim();
+    const price = raw === "" ? null : Number(raw.replace(/,/g, ""));
+    if (price == null || isNaN(price)) { preview.innerHTML = ""; return; }
+    const rate = modalRate();
+    const dop = Number(lot.area) * price;
+    const usd = rate > 0 ? dop / rate : null;
+    preview.innerHTML =
+      `<div class="total-box__label">Total del solar</div>` +
+      `<div class="total-box__amounts"><span class="total-box__dop">${fmtMoney(dop, "DOP")}</span>` +
+      `<span class="total-box__usd">${fmtMoney(usd, "USD")}</span></div>` +
+      `<div class="total-box__rate">Calculado a RD$ ${Number(rate).toFixed(2)} por US$1</div>`;
+  }
+
   function openLotModal(id) {
     activeLotId = String(id);
     const lot = currentState()[activeLotId];
@@ -751,8 +941,21 @@
     $("#lotModalStatusText").textContent = STATUS_LABEL[lot.status];
     $("#lotModalUpdated").textContent = fmtDate(lot.updatedAt);
 
-    const priceTxt = fmtPrice(lot.price, lot.currency);
-    $("#lotModalPrice").textContent = priceTxt ? priceTxt : "A consultar";
+    // Precio público: dos casillas (RD$ y US$). El público solo las ve si el solar
+    // está DISPONIBLE; el admin siempre. En reservado/vendido se ocultan al público.
+    const rowDOP = $("#lotModalPriceRowDOP");
+    const rowUSD = $("#lotModalPriceRowUSD");
+    if (canSeePrice(lot)) {
+      const t = computeTotals(lot);
+      $("#lotModalPriceDOP").textContent = t ? fmtMoney(t.dop, "DOP") : "A consultar";
+      $("#lotModalPriceUSD").textContent = t ? fmtMoney(t.usd, "USD") : "A consultar";
+      rowDOP.hidden = false;
+      rowUSD.hidden = false;
+    } else {
+      rowDOP.hidden = true;
+      rowUSD.hidden = true;
+    }
+
     const reservedRow = $("#lotModalReservedRow");
     if (lot.status !== "disponible" && lot.reservedDate) {
       $("#lotModalReservedLabel").textContent = lot.status === "vendido" ? "Fecha de venta" : "Fecha de reserva";
@@ -767,12 +970,14 @@
     if (isAdmin) {
       $("#lotModalStatusSelect").value = lot.status;
       $("#lotModalNote").value = lot.note || "";
+      $("#lotModalCalcArea").textContent = fmtArea(lot.area); // m² exactos para la multiplicación
       $("#lotModalPriceInput").value = lot.price != null ? lot.price : "";
-      $("#lotModalCurrency").value = lot.currency || "USD";
+      $("#lotModalRateInput").value = Number(usdDopRate).toFixed(2); // tarifa del dólar actual
       $("#lotModalDateInput").value = lot.reservedDate || "";
       const hasPin = lot.x != null && lot.y != null;
       $("#btnPlaceMarker").textContent = hasPin ? "Reubicar marcador en el plano" : "Ubicar en el plano";
       $("#btnRemoveMarker").hidden = !hasPin;
+      updatePricePreview();
     }
     $("#lotBackdrop").hidden = false;
   }
@@ -787,24 +992,39 @@
   $("#btnCloseLotModal").addEventListener("click", closeModals);
   $("#lotBackdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeModals(); });
 
+  // recalcular el total al escribir el precio por m²
+  $("#lotModalPriceInput").addEventListener("input", updatePricePreview);
+  // recalcular el total al escribir la tarifa del dólar
+  $("#lotModalRateInput").addEventListener("input", updatePricePreview);
+  // al terminar de escribir la tarifa, se guarda como tasa global (la verán todos)
+  $("#lotModalRateInput").addEventListener("change", () => {
+    const raw = $("#lotModalRateInput").value.trim();
+    const n = raw === "" ? NaN : Number(raw.replace(/,/g, ""));
+    if (isNaN(n) || n <= 0) return;
+    saveManualRate(n);
+  });
+
   function collectLotModalPatch() {
     const status = $("#lotModalStatusSelect").value;
     const rawPrice = $("#lotModalPriceInput").value.trim();
     const price = rawPrice === "" ? null : Number(rawPrice.replace(/,/g, ""));
-    const currency = $("#lotModalCurrency").value;
     let reservedDate = $("#lotModalDateInput").value || null;
     if (status !== "disponible" && !reservedDate) reservedDate = todayISODate();
     return {
       status,
       note: $("#lotModalNote").value,
       price: price != null && isNaN(price) ? null : price,
-      currency,
+      currency: "DOP", // el precio por m² siempre es en pesos
       reservedDate,
     };
   }
 
   $("#btnSaveLot").addEventListener("click", () => {
     if (!activeLotId) return;
+    // guardar también la tarifa del dólar (global) por si el admin la cambió
+    const rRaw = $("#lotModalRateInput").value.trim();
+    const rn = rRaw === "" ? NaN : Number(rRaw.replace(/,/g, ""));
+    if (!isNaN(rn) && rn > 0 && rn !== usdDopRate) saveManualRate(rn);
     updateLot(activeLotId, collectLotModalPatch());
     toast(`Solar #${activeLotId} actualizado`);
     closeModals();
@@ -951,6 +1171,25 @@
   $("#btnSearchGo").addEventListener("click", performSearch);
 
   /* ---------------------------------------------------------------
+     15c. CALCULADORA PARA CLIENTES (m² × precio/m² = total RD$ y US$)
+     - Visible para cualquier usuario. Usa la misma tarifa del dólar
+       que está activa en el sistema (la que fija el admin o la de internet).
+  ----------------------------------------------------------------- */
+  function renderCalc() {
+    const out = $("#calcResult");
+    if (!out) return;
+    const aEl = $("#calcArea");
+    const pEl = $("#calcPrice");
+    const a = aEl ? Number((aEl.value || "").replace(/,/g, "")) : NaN;
+    const p = pEl ? Number((pEl.value || "").replace(/,/g, "")) : NaN;
+    if (isNaN(a) || isNaN(p) || a <= 0 || p <= 0) { out.textContent = "—"; return; }
+    const dop = a * p;
+    out.innerHTML = `<b>${fmtMoney(dop, "DOP")}</b>`;
+  }
+  if ($("#calcArea")) $("#calcArea").addEventListener("input", renderCalc);
+  if ($("#calcPrice")) $("#calcPrice").addEventListener("input", renderCalc);
+
+  /* ---------------------------------------------------------------
      15b. BOTÓN MARCAR
   ----------------------------------------------------------------- */
   $("#btnAdminMark").addEventListener("click", () => {
@@ -971,6 +1210,15 @@
   ----------------------------------------------------------------- */
   async function initializeApp() {
     console.log("⏳ Inicializando aplicación...");
+
+    // Cargar la tasa fija del admin (global) y suscribirse a sus cambios
+    await loadManualRate();
+    subscribeRateRealtime();
+
+    // Consultar la tasa del dólar en tiempo real (no bloquea el arranque)
+    fetchUsdDopRate();
+    // Refrescar la tasa cada 30 minutos para que siga "en vivo"
+    setInterval(fetchUsdDopRate, 30 * 60 * 1000);
 
     // Cargar datos de Supabase
     if (sb) {

@@ -87,6 +87,16 @@
     <span class="legend-item"><i class="dot dot--sold"></i>Vendido</span>
   </div>
 
+  <div class="toolbar__calc" aria-label="Calculadora de precio">
+    <span class="toolbar__calc-title">Calculadora</span>
+    <input type="number" id="calcArea" class="calc-input" min="0" step="any" inputmode="decimal" placeholder="metros m²">
+    <span class="calc-op">×</span>
+    <span class="calc-prefix">RD$</span>
+    <input type="number" id="calcPrice" class="calc-input" min="0" step="any" inputmode="decimal" placeholder="precio por m²">
+    <span class="calc-op">=</span>
+    <span class="calc-result" id="calcResult">—</span>
+  </div>
+
   <div class="toolbar__zoom">
     <button class="btn btn--icon" id="btnZoomOut" type="button" title="Alejar" aria-label="Alejar">−</button>
     <span class="zoom-readout" id="zoomReadout">100%</span>
@@ -206,7 +216,8 @@
     <dl class="lot-detail-grid">
       <div><dt>Área</dt><dd id="lotModalArea">—</dd></div>
       <div><dt>Estado</dt><dd id="lotModalStatusText">—</dd></div>
-      <div><dt>Precio</dt><dd id="lotModalPrice">—</dd></div>
+      <div id="lotModalPriceRowDOP"><dt>Precio (RD$)</dt><dd id="lotModalPriceDOP">—</dd></div>
+      <div id="lotModalPriceRowUSD"><dt>Precio (US$)</dt><dd id="lotModalPriceUSD">—</dd></div>
       <div id="lotModalReservedRow" hidden><dt id="lotModalReservedLabel">Fecha de reserva</dt><dd id="lotModalReserved">—</dd></div>
       <div><dt>Actualizado</dt><dd id="lotModalUpdated">—</dd></div>
     </dl>
@@ -219,14 +230,22 @@
         <option value="vendido">Vendido</option>
       </select>
 
-      <label class="field-label">Precio (lo verá todo el mundo)</label>
-      <div class="price-field">
-        <select id="lotModalCurrency" class="price-field__currency" aria-label="Moneda">
-          <option value="USD">US$</option>
-          <option value="DOP">RD$</option>
-        </select>
-        <input type="number" id="lotModalPriceInput" class="price-field__amount" min="0" step="any" inputmode="decimal" placeholder="Ej. 45000">
+      <label class="field-label">Precio del solar · dato confidencial (solo se muestra al público mientras el solar esté disponible)</label>
+      <div class="calc-row">
+        <span class="calc-row__area" id="lotModalCalcArea">—</span>
+        <span class="calc-row__op">×</span>
+        <span class="price-field__prefix">RD$</span>
+        <input type="number" id="lotModalPriceInput" class="calc-row__price" min="0" step="any" inputmode="decimal" placeholder="precio por m²">
       </div>
+
+      <label class="field-label" for="lotModalRateInput">¿Cuál es la tarifa del dólar en la actualidad?</label>
+      <div class="calc-row">
+        <span class="price-field__prefix">RD$</span>
+        <input type="number" id="lotModalRateInput" class="calc-row__rate" min="0" step="any" inputmode="decimal" placeholder="ej. 63.50">
+        <span class="calc-row__perusd">por US$&nbsp;1</span>
+      </div>
+
+      <div class="price-preview" id="lotModalPricePreview"></div>
 
       <label class="field-label" for="lotModalDateInput">Fecha de reserva / venta (la verá todo el mundo)</label>
       <input type="date" id="lotModalDateInput">
@@ -248,6 +267,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=10"></script>
+<script src="script.js?v=18"></script>
 </body>
 </html>

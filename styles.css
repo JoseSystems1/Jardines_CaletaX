@@ -81,6 +81,12 @@ button{ font-family: var(--f-body); }
 .btn--icon:hover{ background: var(--blue-100); }
 .btn--block{ width:100%; justify-content:center; margin-top:12px; }
 .btn--mark{ flex-shrink:0; }
+.btn--abonos{ background: var(--blue-100); color: var(--blue-700); border-color: var(--blue-100); margin-top:12px; justify-content:center; }
+.btn--abonos:hover{ background: #cfe3f6; }
+
+/* la ventana de abonos va por encima del cuadro del solar */
+#paymentBackdrop{ z-index: 70; }
+.modal--pay{ max-width: 420px; }
 
 /* visible solo cuando el modo admin está activo (la clase la añade script.js en <body>) */
 .admin-only{ display: none; }
@@ -172,11 +178,28 @@ body.is-admin .admin-only{ display: inline-flex; }
 .legend-item{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:#4A6A8A; }
 .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0; }
 .dot--available{ background: var(--available); }
-.dot--reserved{ background: var(--reserved); }
-.dot--sold{ background: var(--sold); }
+.dot--reserved{ background: #F2B30A; }
+.dot--sold{ background: #F2B30A; }
 
 .toolbar__zoom{ display:flex; align-items:center; gap:8px; margin-left:auto; }
 .zoom-readout{ font-family: var(--f-mono); font-size:12.5px; color:#4A6A8A; min-width:42px; text-align:center; }
+
+/* ---------- calculadora para clientes (en la barra) ---------- */
+.toolbar__calc{
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding:5px 10px; border:1px solid var(--line); border-radius:8px; background: var(--sky-50);
+}
+.toolbar__calc-title{ font-size:12.5px; font-weight:700; color: var(--blue-700); margin-right:2px; }
+.toolbar__calc .calc-input{
+  width:96px; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:7px;
+  background:#fff; font-family: var(--f-mono); color: var(--ink);
+}
+.toolbar__calc .calc-op{ font-family: var(--f-mono); font-size:15px; font-weight:700; color: var(--blue-500); }
+.toolbar__calc .calc-prefix{ font-family: var(--f-mono); font-size:12.5px; font-weight:600; color: var(--blue-700); }
+.toolbar__calc .calc-result{
+  font-family: var(--f-mono); font-size:13px; color:#5B7894; min-width:120px;
+}
+.toolbar__calc .calc-result b{ color: var(--blue-700); font-size:13.5px; }
 
 /* ---------- placement banner ---------- */
 .placement-banner{
@@ -267,8 +290,8 @@ body.map-fullscreen-active{ overflow: hidden; }
   box-shadow: 0 2px 6px rgba(0,0,0,.35);
   pointer-events:auto; touch-action:none;
 }
-.marker--reservado{ background: var(--reserved); }
-.marker--vendido{ background: var(--sold); }
+.marker--reservado{ background: #F2B30A; color:#4a3800; }
+.marker--vendido{ background: #F2B30A; color:#4a3800; }
 .marker:hover{ filter: brightness(1.08); }
 
 /* ---------- SIDEBAR ---------- */
@@ -313,16 +336,16 @@ body.map-fullscreen-active{ overflow: hidden; }
   display:flex; align-items:center; justify-content:center;
 }
 .lot-row__badge.is-disponible{ background: var(--available-bg); color: var(--available); }
-.lot-row__badge.is-reservado{ background: var(--reserved-bg); color: var(--reserved); }
-.lot-row__badge.is-vendido{ background: var(--sold-bg); color: var(--sold); }
+.lot-row__badge.is-reservado{ background: #FCF3D4; color: #B07D08; }
+.lot-row__badge.is-vendido{ background: #FCF3D4; color: #B07D08; }
 
 .lot-row__info{ flex:1; min-width:0; }
 .lot-row__title{ font-size:13px; font-weight:600; }
 .lot-row__meta{ font-size:11.5px; color:#7C95AE; font-family: var(--f-mono); }
 .lot-row__status{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
 .lot-row__status.is-disponible{ color: var(--available); }
-.lot-row__status.is-reservado{ color: var(--reserved); }
-.lot-row__status.is-vendido{ color: var(--sold); }
+.lot-row__status.is-reservado{ color: #B07D08; }
+.lot-row__status.is-vendido{ color: #B07D08; }
 
 .empty-state{ font-size:13px; color:#7C95AE; text-align:center; padding: 20px 6px; }
 
@@ -350,6 +373,20 @@ body.map-fullscreen-active{ overflow: hidden; }
   border-bottom:1px solid var(--line-soft);
   font-family: var(--f-mono);
 }
+
+/* ---------- APARTADO TASA DEL DÓLAR (admin) ---------- */
+.rate-box{ margin:12px 18px; border:1px solid var(--line); border-radius:10px; background: var(--sky-50); padding:12px; }
+.rate-box__top{ display:flex; gap:10px; margin-bottom:10px; }
+.rate-box__top > div{ flex:1; background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:8px 10px; }
+.rate-box__label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#7C95AE; margin-bottom:3px; }
+.rate-box__live{ font-family: var(--f-mono); font-size:15px; font-weight:700; color: var(--blue-700); }
+.rate-box__eff span#rateEffective{ font-family: var(--f-mono); font-size:14px; font-weight:700; color: var(--available); }
+.rate-box__editlabel{ display:block; font-size:12px; font-weight:600; color:#4A6A8A; margin:2px 0 6px; }
+.rate-box__edit{ display:flex; gap:6px; align-items:stretch; }
+.rate-box__edit #rateInput{ flex:1 1 auto; min-width:0; font-size:14px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; font-family: var(--f-mono); }
+.rate-box__edit .btn{ flex:0 0 auto; }
+.rate-box__uselive{ margin-top:8px; }
+.rate-box__hint{ margin:8px 0 0; font-size:11.5px; color:#5B7894; }
 .admin-panel__search{ display:flex; gap:8px; padding: 12px 18px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap; }
 .admin-panel__search input, .admin-panel__search select{
   font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:7px; background:var(--sky-50);
@@ -416,12 +453,97 @@ body.map-fullscreen-active{ overflow: hidden; }
 
 /* precio en la lista de reservas */
 .lot-row__price{ font-size:12.5px; font-weight:700; color: var(--blue-700); font-family: var(--f-mono); margin-top:2px; }
+.lot-row__date{ font-size:11.5px; color:#5B7894; font-family: var(--f-mono); margin-top:2px; }
 
 /* campo de precio (moneda + monto) en el modal admin */
-.price-field{ display:flex; gap:8px; }
+.price-field{ display:flex; gap:8px; align-items:stretch; }
 .price-field__currency{ flex:0 0 78px; width:78px !important; }
+.price-field__prefix{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  padding:0 14px; border:1px solid var(--line); border-radius:8px;
+  background: var(--blue-100); color: var(--blue-700);
+  font-family: var(--f-mono); font-weight:600; font-size:14px;
+}
 .price-field__amount{ flex:1 1 auto; }
 .lot-detail-grid dd#lotModalPrice{ color: var(--blue-700); }
+
+/* ---------- multiplicación ordenada: m² × precio/m² · y tarifa del dólar ---------- */
+.calc-row{ display:flex; align-items:stretch; gap:8px; flex-wrap:wrap; }
+.calc-row + .calc-row{ margin-top:2px; }
+.calc-row__area{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  padding:0 12px; min-height: var(--tap);
+  border:1px solid var(--line); border-radius:8px; background:#fff;
+  font-family: var(--f-mono); font-weight:700; font-size:13.5px; color: var(--ink); white-space:nowrap;
+}
+.calc-row__op{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  font-family: var(--f-mono); font-size:18px; font-weight:700; color: var(--blue-500); padding:0 2px;
+}
+.calc-row__price, .calc-row__rate{
+  flex:1 1 120px; min-width:0;
+  font-size:14px; padding:10px 12px; border:1px solid var(--line); border-radius:8px;
+  background: var(--sky-50); font-family: var(--f-mono);
+}
+.calc-row__perusd{
+  flex:0 0 auto; display:flex; align-items:center;
+  font-family: var(--f-mono); font-size:12.5px; color:#5B7894; white-space:nowrap;
+}
+
+/* ---------- caja del TOTAL (vista previa del cálculo) ---------- */
+.price-preview{
+  margin: 10px 0 0; padding:10px 12px;
+  background: var(--sky-50); border:1px dashed var(--line); border-radius:8px;
+}
+.price-preview:empty{ display:none; }
+.total-box__label{ font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#7C95AE; margin-bottom:4px; }
+.total-box__amounts{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.total-box__dop{ font-family: var(--f-mono); font-size:18px; font-weight:700; color: var(--ink); }
+.total-box__usd{ font-family: var(--f-mono); font-size:14px; font-weight:700; color: var(--blue-600); }
+.total-box__rate{ margin-top:4px; font-family: var(--f-mono); font-size:11px; color:#7C95AE; }
+
+/* ---------- MÓDULO DE PAGOS / ABONOS (solo admin) ---------- */
+.pay-box{
+  margin-top:14px; border:1px solid var(--line); border-radius:10px;
+  background: var(--sky-50); padding:12px;
+}
+.pay-box__head{
+  font-size:12px; font-weight:700; color: var(--blue-700);
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;
+}
+.pay-box__tag{
+  font-family: var(--f-mono); font-size:10px; font-weight:600; text-transform:uppercase;
+  letter-spacing:.04em; color: var(--blue-600); background: var(--blue-100);
+  padding:2px 7px; border-radius:999px;
+}
+.pay-summary{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.pay-summary > div{ background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:7px 9px; }
+.pay-summary dt{ font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#7C95AE; margin-bottom:2px; }
+.pay-summary dd{ margin:0; font-family: var(--f-mono); font-size:13px; font-weight:700; color: var(--ink); }
+.pay-summary .is-falta dd{ color: var(--reserved); }
+.pay-summary .is-pagado{ grid-column:1 / -1; background: var(--available-bg); border-color: var(--available); }
+.pay-summary .is-pagado dd{ color: var(--available); }
+
+.pay-list{ list-style:none; margin:0 0 10px; padding:0; display:flex; flex-direction:column; gap:6px; }
+.pay-list li{
+  display:flex; align-items:center; gap:8px;
+  background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:6px 9px;
+  font-family: var(--f-mono); font-size:12px;
+}
+.pay-list .pay-amt{ font-weight:700; color: var(--blue-700); }
+.pay-list .pay-date{ color:#7C95AE; }
+.pay-list .pay-del{
+  margin-left:auto; border:none; background:transparent; cursor:pointer;
+  color: var(--sold); font-size:14px; width:26px; height:26px; border-radius:6px;
+}
+.pay-list .pay-del:hover{ background: var(--sold-bg); }
+.pay-list__empty{ font-size:11.5px; color:#7C95AE; padding:2px 0 8px; }
+
+.pay-add{ display:flex; gap:6px; align-items:stretch; flex-wrap:wrap; }
+.pay-add #payAmountInput{ flex:1 1 120px; min-width:0; font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; font-family: var(--f-body); }
+.pay-add #payDateInput{ flex:1 1 130px; min-width:0; font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+.pay-add .btn{ flex:0 0 auto; }
+#btnPayFull{ margin-top:8px; }
 
 /* ---------- TOAST ---------- */
 .toast{
@@ -473,6 +595,9 @@ body.map-fullscreen-active{ overflow: hidden; }
   .toolbar__search{ flex: 1 1 100%; max-width: none; order: 1; }
   .btn--mark{ order: 2; flex: 1 1 100%; justify-content:center; }
   .toolbar__legend{ order: 4; width:100%; justify-content: space-between; gap:8px; }
+  .toolbar__calc{ order: 5; width:100%; justify-content: space-between; }
+  .toolbar__calc .calc-input{ flex:1 1 80px; width:auto; }
+  .toolbar__calc .calc-result{ width:100%; text-align:right; }
   .toolbar__zoom{ order: 3; margin-left:0; width:100%; justify-content: space-between; }
   .toolbar__zoom .zoom-readout{ flex:1; }
 
