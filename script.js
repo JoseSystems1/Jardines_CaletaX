@@ -7,21 +7,23 @@
      0. CONFIGURACIÓN
   ----------------------------------------------------------------- */
   const CONFIG = {
-    ADMIN_PASSWORD: "caletax2026",
+    ADMIN_USER: "adonel",
+    ADMIN_PASSWORD: "jardinesx2026",
     STORAGE_KEY_PREFIX: "jcx_lots_state_v2_",
     SESSION_KEY: "jcx_admin_session_v1",
+    NOTE_MAX: 500,
+    // ===== Tasa del dólar del BANCO POPULAR (vía TasaReal.com) =====
+    // 1) Crea una cuenta gratis en https://tasareal.com/precios y copia tu API key.
+    // 2) Pégala aquí entre comillas. Si la dejas vacía, se usa la tasa de mercado de respaldo.
+    TASAREAL_KEY: "tcrd_AZ8MuI1ncaz0oUFKNPxaolQATO2JJEucGCn0pxRaZsyT4aWT", // API key de TasaReal
+    TASAREAL_INSTITUTION: "popular",  // institución: Banco Popular
+    TASAREAL_SIDE: "sell",            // "sell" = tasa de venta del banco (RD$ por US$1)
   };
 
   const SUPABASE_URL = "https://tecoypzwhxqczrvfwmbf.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlY295cHp3aHhxY3pydmZ3bWJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzOTUwNDksImV4cCI6MjA5Nzk3MTA0OX0.jlk6w44lpkgvTMieC8oqZlxNOt2JsMCNGTxHBOWswfo";
 
-  console.log("✓ Config cargada");
-  console.log("✓ Supabase URL:", SUPABASE_URL);
-  console.log("✓ window.supabase existe?", typeof window.supabase !== "undefined");
-
   const USE_SUPABASE = typeof window.supabase !== "undefined";
-  console.log("✓ USE_SUPABASE =", USE_SUPABASE);
-
   const sb = USE_SUPABASE ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
   console.log("✓ Cliente Supabase:", sb ? "✅ CONECTADO" : "❌ NO CONECTADO");
 
@@ -92,22 +94,12 @@
   ];
 
   const PROJECTS = {
-    x: {
-      key: "x",
-      title: "Urbanización Jardines de Caleta\u00A0X",
+    x: { key: "x", title: "Urbanización Jardines de Caleta\u00A0X",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
-      dzi: "assets/dzi/plano.dzi",
-      imgW: 10960, imgH: 6476,
-      lots: LOTS_BASE_X,
-    },
-    ix: {
-      key: "ix",
-      title: "Urbanización Jardines de Caleta\u00A0IX",
+      dzi: "assets/dzi/plano.dzi", imgW: 10960, imgH: 6476, lots: LOTS_BASE_X },
+    ix: { key: "ix", title: "Urbanización Jardines de Caleta\u00A0IX",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
-      dzi: "assets/dzi-ix/plano.dzi",
-      imgW: 10300, imgH: 9900,
-      lots: LOTS_BASE_IX,
-    },
+      dzi: "assets/dzi-ix/plano.dzi", imgW: 10300, imgH: 9900, lots: LOTS_BASE_IX },
   };
 
   let activeProject = "x";
@@ -119,11 +111,8 @@
   function defaultState(projKey) {
     const obj = {};
     PROJECTS[projKey].lots.forEach(([id, area]) => {
-      obj[id] = {
-        id, area, status: "disponible", x: null, y: null, note: "",
-        price: null, currency: "DOP", reservedDate: null,
-        updatedAt: null,
-      };
+      obj[id] = { id, area, status: "disponible", x: null, y: null, note: "",
+        price: null, currency: "DOP", reservedDate: null, rate: null, updatedAt: null };
     });
     return obj;
   }
@@ -136,20 +125,12 @@
       if (!raw) return defaultState(projKey);
       const parsed = JSON.parse(raw);
       const base = defaultState(projKey);
-      Object.keys(base).forEach((id) => {
-        if (parsed[id]) base[id] = { ...base[id], ...parsed[id] };
-      });
+      Object.keys(base).forEach((id) => { if (parsed[id]) base[id] = { ...base[id], ...parsed[id] }; });
       return base;
-    } catch (e) {
-      console.warn("No se pudo leer localStorage:", projKey, e);
-      return defaultState(projKey);
-    }
+    } catch (e) { console.warn("No se pudo leer localStorage:", projKey, e); return defaultState(projKey); }
   }
 
-  const states = {
-    x: defaultState("x"),
-    ix: defaultState("ix"),
-  };
+  const states = { x: defaultState("x"), ix: defaultState("ix") };
   function currentState() { return states[activeProject]; }
 
   function persistLocal(projKey) {
@@ -158,9 +139,7 @@
   }
 
   let channel = null;
-  if (!sb) {
-    try { channel = new BroadcastChannel("jcx-sync"); } catch (e) { channel = null; }
-  }
+  if (!sb) { try { channel = new BroadcastChannel("jcx-sync"); } catch (e) { channel = null; } }
   function broadcastUpdate(projKey) {
     if (channel) { try { channel.postMessage({ type: "update", project: projKey, t: Date.now() }); } catch (e) {} }
   }
@@ -180,59 +159,35 @@
 
   function rowToLot(row) {
     return {
-      id: row.id,
-      area: Number(row.area),
-      status: row.status,
+      id: row.id, area: Number(row.area),
+      status: ALLOWED_STATUS[row.status] ? row.status : "disponible",
       x: row.x == null ? null : Number(row.x),
       y: row.y == null ? null : Number(row.y),
       note: row.note || "",
       price: row.price == null || row.price === "" ? null : Number(row.price),
       currency: row.currency || "DOP",
       reservedDate: row.reserved_date || null,
+      rate: row.rate == null || row.rate === "" ? null : Number(row.rate),
       updatedAt: row.updated_at,
     };
   }
 
   async function loadStateFromSupabase() {
-    if (!sb) {
-      console.warn("⚠️ Supabase no disponible");
-      return;
-    }
-    console.log("📡 Cargando datos de Supabase...");
+    if (!sb) { console.warn("⚠️ Supabase no disponible"); return; }
     try {
       const { data, error } = await sb.from("lots").select("*").order("project").order("id");
-      if (error || !data || data.length === 0) {
-        console.warn("❌ Error al cargar Supabase:", error);
-        return;
-      }
-      console.log("✅ Datos cargados:", data.length, "registros");
+      if (error || !data || data.length === 0) { console.warn("❌ Error al cargar Supabase:", error); return; }
       const fresh = { x: defaultState("x"), ix: defaultState("ix") };
-      data.forEach((row) => {
-        const pk = row.project;
-        if (fresh[pk] && fresh[pk][row.id]) {
-          fresh[pk][row.id] = rowToLot(row);
-        }
-      });
-      states.x = fresh.x;
-      states.ix = fresh.ix;
+      data.forEach((row) => { const pk = row.project; if (fresh[pk] && fresh[pk][row.id]) fresh[pk][row.id] = rowToLot(row); });
+      states.x = fresh.x; states.ix = fresh.ix;
       console.log("✅ Estados sincronizados desde Supabase");
-      ["x", "ix"].forEach((pk) => {
-        const arr = Object.values(states[pk]);
-        const conCoords = arr.filter((l) => l.x != null && l.y != null).length;
-        const marcados = arr.filter((l) => l.status !== "disponible").length;
-        console.log(`   • ${pk.toUpperCase()}: ${arr.length} solares · ${conCoords} con coordenadas · ${marcados} reservados/vendidos`);
-      });
-    } catch (err) {
-      console.error("❌ Error sincronizando Supabase:", err);
-    }
+    } catch (err) { console.error("❌ Error sincronizando Supabase:", err); }
   }
 
   function subscribeRealtime() {
     if (!sb) return;
-    console.log("🔔 Suscribiendo a cambios en tiempo real...");
     sb.channel("lots-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "lots" }, (payload) => {
-        console.log("🔔 Cambio en BD:", payload.eventType);
         const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
         if (!row || row.id == null) return;
         if (payload.eventType === "DELETE") return;
@@ -250,63 +205,87 @@
   ----------------------------------------------------------------- */
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function clampNumber(v, min, max) {
+    const n = Number(v);
+    if (isNaN(n)) return null;
+    return Math.min(max, Math.max(min, n));
+  }
+  const ALLOWED_STATUS = { disponible: 1, reservado: 1, vendido: 1 };
+
   const fmtArea = (n) => n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " m²";
   const CURRENCY_SYMBOL = { USD: "US$", DOP: "RD$" };
-  const fmtPrice = (amount, currency) => {
-    if (amount == null || isNaN(amount)) return null;
-    const sym = CURRENCY_SYMBOL[currency] || "US$";
-    return sym + " " + Number(amount).toLocaleString("es-DO", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-  };
 
-  /* ===============================================================
-     3b. TASA DEL DÓLAR (en vivo + tasa fija del admin) + PRECIO EN AMBAS MONEDAS
-     - El admin guarda un PRECIO POR m². El total = área × precio/m² (en RD$).
-     - Para mostrar el equivalente en US$ se usa una tasa USD→DOP.
-     - La "tasa efectiva" es: la tasa FIJA que ponga el admin (si la puso),
-       o si no, la tasa EN VIVO de internet, o si todo falla, la de respaldo.
-     - La tasa fija se guarda en Supabase y se aplica a TODOS (público y admin).
-  =============================================================== */
-  const FALLBACK_RATE = 62;   // respaldo si no hay internet ni tasa fija
-  let liveRate = null;        // tasa traída de internet
-  let manualRate = null;      // tasa fija puesta por el admin (global)
-  let rateLoaded = false;     // true cuando ya cargó la tasa en vivo
-  let usdDopRate = FALLBACK_RATE; // TASA EFECTIVA usada en todos los cálculos
+  const FALLBACK_RATE = 62;
+  let liveRate = null, manualRate = null, rateLoaded = false;
+  let usdDopRate = FALLBACK_RATE;
 
   function recomputeRate() {
-    usdDopRate = (manualRate && manualRate > 0)
-      ? manualRate
-      : (liveRate && liveRate > 0 ? liveRate : FALLBACK_RATE);
+    usdDopRate = (manualRate && manualRate > 0) ? manualRate : (liveRate && liveRate > 0 ? liveRate : FALLBACK_RATE);
     try { updateRateDisplay(); } catch (e) {}
     try { renderAll(); } catch (e) {}
     try { updatePricePreview(); } catch (e) {}
-    try { renderCalc(); } catch (e) {}
   }
 
-  async function fetchUsdDopRate() {
+  // Trae la tasa del Banco Popular (TasaReal). Devuelve un número o null.
+  async function fetchBancoPopularRate() {
+    if (!CONFIG.TASAREAL_KEY) return null; // sin API key no se puede consultar
     try {
-      const res = await fetch("https://open.er-api.com/v6/latest/USD");
-      const data = await res.json();
-      if (data && data.rates && data.rates.DOP) {
-        liveRate = Number(data.rates.DOP);
-        rateLoaded = true;
-        console.log("💱 Tasa USD→DOP en vivo:", liveRate);
-        recomputeRate();
+      const url = "https://tasareal.com/api/v1/rates?currency=USD&institution=" +
+                  encodeURIComponent(CONFIG.TASAREAL_INSTITUTION);
+      const res = await fetch(url, { headers: { "Authorization": "Bearer " + CONFIG.TASAREAL_KEY } });
+      if (!res.ok) {
+        if (res.status === 401) console.warn("⚠️ TasaReal: API key inválida.");
+        else if (res.status === 429) console.warn("⚠️ TasaReal: límite diario alcanzado.");
+        else console.warn("⚠️ TasaReal respondió", res.status);
+        return null;
       }
+      const data = await res.json();
+      const row = data && Array.isArray(data.rates)
+        ? data.rates.find((r) => r.institution === CONFIG.TASAREAL_INSTITUTION) || data.rates[0]
+        : null;
+      if (!row) return null;
+      const val = Number(CONFIG.TASAREAL_SIDE === "buy" ? row.buy : row.sell);
+      return (!isNaN(val) && val > 0) ? val : null;
     } catch (err) {
-      console.warn("⚠️ No se pudo obtener la tasa del dólar en vivo:", err);
-      recomputeRate();
+      console.warn("⚠️ No se pudo consultar TasaReal (¿bloqueo CORS?):", err);
+      return null;
     }
   }
 
-  // Cargar la tasa fija guardada (global) desde Supabase (o localStorage si no hay sb)
+  // Tasa de mercado de respaldo (si no hay API key del Banco Popular o falla)
+  async function fetchMarketRate() {
+    try {
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await res.json();
+      if (data && data.rates && data.rates.DOP) return Number(data.rates.DOP);
+    } catch (err) { console.warn("⚠️ No se pudo obtener la tasa de mercado:", err); }
+    return null;
+  }
+
+  // Consulta la tasa "en vivo": primero Banco Popular, si no, mercado.
+  // Se llama al arrancar y cada 30 min (48 veces/día) — ver initializeApp().
+  async function fetchUsdDopRate() {
+    let rate = await fetchBancoPopularRate();   // 1º Banco Popular (TasaReal)
+    let fuente = "Banco Popular";
+    if (rate == null) { rate = await fetchMarketRate(); fuente = "mercado"; } // 2º respaldo
+    if (rate != null && rate > 0) {
+      liveRate = rate; rateLoaded = true;
+      console.log("💱 Tasa USD→DOP (" + fuente + "):", rate);
+    } else { rateLoaded = true; }
+    recomputeRate();
+  }
+
   async function loadManualRate() {
     try {
       if (sb) {
         const { data, error } = await sb.from("app_settings").select("value").eq("key", "usd_rate").maybeSingle();
-        if (!error && data && data.value != null) {
-          const n = Number(data.value);
-          if (!isNaN(n) && n > 0) manualRate = n;
-        }
+        if (!error && data && data.value != null) { const n = Number(data.value); if (!isNaN(n) && n > 0) manualRate = n; }
       } else {
         const r = localStorage.getItem("jcx_manual_rate");
         if (r) { const n = Number(r); if (!isNaN(n) && n > 0) manualRate = n; }
@@ -329,9 +308,9 @@
     } catch (e) {}
   }
 
-  // Guardar / quitar la tasa fija (se aplica a todos al instante)
   async function saveManualRate(rate) {
-    manualRate = (rate && rate > 0) ? rate : null;
+    const clamped = clampNumber(rate, 1, 1000);
+    manualRate = (clamped && clamped > 0) ? clamped : null;
     recomputeRate();
     try {
       if (sb) {
@@ -339,9 +318,7 @@
           const { error } = await sb.from("app_settings")
             .upsert({ key: "usd_rate", value: String(manualRate), updated_at: new Date().toISOString() }, { onConflict: "key" });
           if (error) { console.warn("❌ Error guardando tasa:", error); toast("⚠️ No se pudo guardar la tasa (¿creaste la tabla app_settings?)"); }
-        } else {
-          await sb.from("app_settings").delete().eq("key", "usd_rate");
-        }
+        } else { await sb.from("app_settings").delete().eq("key", "usd_rate"); }
       } else {
         if (manualRate) localStorage.setItem("jcx_manual_rate", String(manualRate));
         else localStorage.removeItem("jcx_manual_rate");
@@ -349,42 +326,38 @@
     } catch (e) { console.warn("Error guardando tasa:", e); }
   }
 
-  function rateLabel() {
-    if (manualRate && manualRate > 0) return "tasa fija RD$ " + manualRate.toFixed(2);
-    if (liveRate && liveRate > 0) return "tasa en vivo RD$ " + liveRate.toFixed(2);
-    return "tasa de respaldo RD$ " + FALLBACK_RATE.toFixed(2);
-  }
-
-  // Pinta el apartado de la tasa del dólar en el panel de admin
   function updateRateDisplay() {
-    const live = $("#rateLive");
-    if (!live) return;
-    live.textContent = liveRate ? ("RD$ " + liveRate.toFixed(2)) : (rateLoaded ? "no disponible" : "cargando…");
     const eff = $("#rateEffective");
     if (eff) eff.textContent = "RD$ " + Number(usdDopRate).toFixed(2) + " por US$1";
+    const src = $("#rateSource");
+    if (src) {
+      src.textContent = (manualRate && manualRate > 0) ? "fija (admin)"
+        : (liveRate && liveRate > 0 ? "Banco Popular / mercado" : "respaldo");
+    }
     const hint = $("#rateHint");
     if (hint) {
       hint.textContent = (manualRate && manualRate > 0)
-        ? "Usando la tasa FIJA del admin para todos los cálculos."
-        : "Usando la tasa EN VIVO automáticamente.";
+        ? "Tasa FIJA del admin. Se aplica a los solares DISPONIBLES. Los reservados/vendidos conservan la que tenían."
+        : "Tasa AUTOMÁTICA. Se aplica a los disponibles; los reservados/vendidos conservan su tasa congelada.";
     }
     const inp = $("#rateInput");
     if (inp && document.activeElement !== inp) {
       inp.value = (manualRate && manualRate > 0) ? manualRate : (liveRate ? Number(liveRate.toFixed(2)) : "");
     }
-    const useLive = $("#btnUseLiveRate");
-    if (useLive) useLive.hidden = !(manualRate && manualRate > 0);
+    const useAuto = $("#btnUseLiveRate");
+    if (useAuto) useAuto.hidden = !(manualRate && manualRate > 0);
+    const live = $("#rateLive");
+    if (live) live.textContent = liveRate ? ("RD$ " + liveRate.toFixed(2)) : (rateLoaded ? "no disponible" : "cargando…");
   }
 
-  // El precio por m² SIEMPRE se ingresa y se multiplica en pesos (RD$).
-  // El total en pesos = área × precio/m². El dólar es solo una conversión
-  // para mostrar, con la tasa efectiva (fija del admin o en vivo).
   function computeTotals(lot) {
     if (!lot || lot.price == null || isNaN(lot.price)) return null;
-    const perM2 = Number(lot.price);
-    const dop = Number(lot.area) * perM2;        // total en RD$ (la multiplicación)
-    const usd = usdDopRate ? dop / usdDopRate : null; // equivalente en US$
-    return { usd, dop, perM2, total: dop };
+    const dop = Number(lot.area) * Number(lot.price);
+    // Tasa: si el solar está reservado/vendido y tiene una tasa CONGELADA, se usa esa
+    // (la que tenía al reservarlo/venderlo). Si está disponible, se usa la tasa actual.
+    const rate = (lot.status !== "disponible" && lot.rate != null && lot.rate > 0) ? lot.rate : usdDopRate;
+    const usd = rate ? dop / rate : null;
+    return { usd, dop, total: dop, rate };
   }
 
   function fmtMoney(amount, currency) {
@@ -393,20 +366,13 @@
     return sym + " " + Math.round(Number(amount)).toLocaleString("es-DO");
   }
 
-  // Total mostrado al PÚBLICO de un solar disponible: en US$ y RD$ a la vez.
   function fmtPriceBoth(lot) {
     const t = computeTotals(lot);
     if (!t) return null;
     return fmtMoney(t.usd, "USD") + " · " + fmtMoney(t.dop, "DOP");
   }
 
-  // ¿Se puede mostrar el precio a quien está mirando?
-  // - El admin SIEMPRE ve el precio (dato confidencial).
-  // - El público solo ve el precio si el solar está DISPONIBLE.
-  function canSeePrice(lot) {
-    return isAdmin || lot.status === "disponible";
-  }
-
+  function canSeePrice(lot) { return isAdmin || lot.status === "disponible"; }
 
   const fmtDateOnly = (val) => {
     if (!val) return "—";
@@ -430,8 +396,7 @@
   let toastTimer = null;
   function toast(msg) {
     const el = $("#toast");
-    el.textContent = msg;
-    el.hidden = false;
+    el.textContent = msg; el.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
   }
@@ -439,19 +404,17 @@
   /* ---------------------------------------------------------------
      4. SESIÓN ADMIN
   ----------------------------------------------------------------- */
-  let isAdmin = sessionStorage.getItem(CONFIG.SESSION_KEY) === "1";
-
+  let isAdmin = false;
+  async function checkAdminSession() {
+    try { isAdmin = sessionStorage.getItem(CONFIG.SESSION_KEY) === "1"; } catch (e) { isAdmin = false; }
+  }
   function setAdmin(value) {
     isAdmin = value;
-    sessionStorage.setItem(CONFIG.SESSION_KEY, value ? "1" : "0");
+    try { sessionStorage.setItem(CONFIG.SESSION_KEY, value ? "1" : "0"); } catch (e) {}
     $("#btnAdminToggle").classList.toggle("is-admin", value);
     $("#adminBtnLabel").textContent = value ? "Modo admin activo" : "Acceso admin";
     document.body.classList.toggle("is-admin", value);
-    if (!value) {
-      $("#adminPanel").hidden = true;
-      $("#adminOverlay").hidden = true;
-      exitPlacementMode();
-    }
+    if (!value) { $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; exitPlacementMode(); }
     renderAll();
   }
 
@@ -476,9 +439,7 @@
 
   function tabMeta(projKey) {
     const all = Object.values(states[projKey]);
-    const total = all.length;
-    const libres = all.filter((l) => l.status === "disponible").length;
-    return `${total} solares · ${libres} libres`;
+    return `${all.length} solares · ${all.filter((l) => l.status === "disponible").length} libres`;
   }
   function renderTabsMeta() {
     $("#tabMetaX").textContent = tabMeta("x");
@@ -486,51 +447,36 @@
   }
 
   /* ---------------------------------------------------------------
-     6. MARCADORES  (un juego de marcadores por proyecto, independientes)
-     - Cada proyecto tiene su PROPIO visor (OSD.x / OSD.ix). Por eso sus
-       marcadores nunca se mezclan ni se borran al cambiar de pestaña.
-     - repaintMarkers(pk) borra y vuelve a pintar SOLO el visor de ese
-       proyecto, leyendo de states[pk]. Es 100% idempotente.
+     6. MARCADORES
   ----------------------------------------------------------------- */
   function repaintMarkers(pk) {
     pk = pk || activeProject;
     const v = OSD[pk];
     const info = VW[pk];
     if (!v || !info || !info.ready) return;
-    v.clearOverlays(); // en esta app los overlays se usan SOLO para marcadores
+    v.clearOverlays();
     let drawn = 0;
-    const sinUbicar = [];
     Object.values(states[pk]).forEach((lot) => {
       try {
         if (lot.status === "disponible") return;
-        if (lot.x == null || lot.y == null) { sinUbicar.push(lot.id); return; }
+        if (lot.x == null || lot.y == null) return;
         const el = document.createElement("div");
         el.className = "marker marker--" + lot.status;
         el.textContent = lot.status === "vendido" ? "✕" : "●";
-        // Tooltip: el público ve estado + fecha; el admin además ve el precio (confidencial)
         let tip = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status];
         if (lot.reservedDate) tip += " · " + fmtDateOnly(lot.reservedDate);
         if (isAdmin) { const pTxt = fmtPriceBoth(lot); if (pTxt) tip += " · " + pTxt; }
         el.title = tip;
         const lotId = lot.id;
-        const openThis = (ev) => {
-          if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); }
-          openLotModal(lotId);
-        };
+        const openThis = (ev) => { if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); } openLotModal(lotId); };
         el.addEventListener("click", openThis);
         el.addEventListener("touchend", openThis, { passive: false });
-        const point = v.viewport.imageToViewportCoordinates(
-          new OpenSeadragon.Point((lot.x / 100) * info.W, (lot.y / 100) * info.H)
-        );
+        const point = v.viewport.imageToViewportCoordinates(new OpenSeadragon.Point((lot.x / 100) * info.W, (lot.y / 100) * info.H));
         v.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
         drawn++;
       } catch (err) { console.warn("Error dibujando marcador:", lot && lot.id, err); }
     });
-    console.log(`🟢 Marcadores en ${pk.toUpperCase()}: ${drawn}` +
-                (sinUbicar.length ? ` · sin ubicación en el plano: #${sinUbicar.join(", #")}` : ""));
   }
-
-  // Alias usado por renderAll(): repinta el proyecto visible.
   function renderMarkers() { repaintMarkers(activeProject); }
 
   /* ---------------------------------------------------------------
@@ -542,35 +488,28 @@
     const list = $("#lotList");
     const empty = $("#emptyState");
     list.innerHTML = "";
-
     let lots = Object.values(currentState()).sort((a, b) => a.id - b.id);
-    if (currentFilter === "activos") {
-      lots = lots.filter((l) => l.status !== "disponible");
-    }
-
-    if (lots.length === 0) {
-      empty.hidden = false;
-      return;
-    }
+    if (currentFilter === "activos") lots = lots.filter((l) => l.status !== "disponible");
+    if (lots.length === 0) { empty.hidden = false; return; }
     empty.hidden = true;
-
     lots.forEach((lot) => {
       const li = document.createElement("li");
-      li.className = "lot-row";
+      li.className = "lot-row is-" + lot.status;
       li.dataset.lotId = lot.id;
-      // Precio solo si el solar está disponible o si es admin (confidencial)
-      const priceTxt = canSeePrice(lot) ? fmtPriceBoth(lot) : null;
-      // Para reservado/vendido el público ve la fecha en vez del precio
+      const t = canSeePrice(lot) ? computeTotals(lot) : null;
+      const priceHtml = t
+        ? `<div class="lot-row__price">${fmtMoney(t.dop, "DOP")}</div>` +
+          `<div class="lot-row__price-usd">${fmtMoney(t.usd, "USD")}</div>`
+        : "";
       const dateTxt = (lot.status !== "disponible" && lot.reservedDate)
-        ? (lot.status === "vendido" ? "Vendido el " : "Reservado el ") + fmtDateOnly(lot.reservedDate)
-        : null;
+        ? (lot.status === "vendido" ? "Vendido el " : "Reservado el ") + fmtDateOnly(lot.reservedDate) : null;
       li.innerHTML = `
         <div class="lot-row__badge is-${lot.status}">#${lot.id}</div>
         <div class="lot-row__info">
           <div class="lot-row__title">Solar No. ${lot.id} <span class="lot-row__meta">· ${fmtArea(lot.area)}</span></div>
           <div class="lot-row__status is-${lot.status}">${STATUS_LABEL[lot.status]}</div>
           ${dateTxt ? `<div class="lot-row__date">${dateTxt}</div>` : ""}
-          ${priceTxt ? `<div class="lot-row__price">${priceTxt}</div>` : ""}
+          ${priceHtml}
         </div>`;
       li.addEventListener("click", () => openLotModal(lot.id));
       list.appendChild(li);
@@ -586,7 +525,6 @@
     const term = $("#adminSearch").value.trim();
     const statusFilter = $("#adminStatusFilter").value;
     body.innerHTML = "";
-
     Object.values(currentState())
       .sort((a, b) => a.id - b.id)
       .filter((l) => (term ? String(l.id).includes(term) : true))
@@ -605,18 +543,13 @@
             </select>
           </td>
           <td>
-            <button class="price-btn ${priceTxt ? "has-price" : ""}" data-id="${lot.id}">
-              ${priceTxt ? priceTxt : "Poner precio"}
-            </button>
+            <button class="price-btn ${priceTxt ? "has-price" : ""}" data-id="${lot.id}">${priceTxt ? priceTxt : "Poner precio"}</button>
           </td>
           <td>
-            <button class="pin-btn ${lot.x != null ? "has-pin" : ""}" data-id="${lot.id}">
-              ${lot.x != null ? "Reubicar" : "Ubicar en mapa"}
-            </button>
+            <button class="pin-btn ${lot.x != null ? "has-pin" : ""}" data-id="${lot.id}">${lot.x != null ? "Reubicar" : "Ubicar en mapa"}</button>
           </td>`;
         body.appendChild(tr);
       });
-
     body.querySelectorAll(".status-select").forEach((sel) => {
       sel.addEventListener("change", () => {
         const id = sel.dataset.id;
@@ -627,21 +560,12 @@
         toast(`Solar #${id} → ${STATUS_LABEL[sel.value]}`);
       });
     });
-    body.querySelectorAll(".price-btn").forEach((btn) => {
-      btn.addEventListener("click", () => openLotModal(btn.dataset.id));
-    });
-    body.querySelectorAll(".pin-btn").forEach((btn) => {
-      btn.addEventListener("click", () => enterPlacementMode(btn.dataset.id));
-    });
+    body.querySelectorAll(".price-btn").forEach((btn) => { btn.addEventListener("click", () => openLotModal(btn.dataset.id)); });
+    body.querySelectorAll(".pin-btn").forEach((btn) => { btn.addEventListener("click", () => enterPlacementMode(btn.dataset.id)); });
   }
 
   function renderAll() {
-    renderProjectChrome();
-    renderStats();
-    renderTabsMeta();
-    renderMarkers();
-    renderLotList();
-    renderAdminTable();
+    renderProjectChrome(); renderStats(); renderTabsMeta(); renderMarkers(); renderLotList(); renderAdminTable();
   }
 
   /* ---------------------------------------------------------------
@@ -650,30 +574,27 @@
   function updateLot(id, patch) {
     const lot = currentState()[id];
     if (!lot) return;
+
+    // Congelar / liberar la TASA del dólar según el estado:
+    // - Disponible: la tasa "flota" (usa la actual del sistema) -> rate = null
+    // - Reservado/Vendido: si aún no tiene tasa congelada, se congela la ACTUAL
+    //   (queda con la tasa que tenía en el momento de reservarlo/venderlo).
+    const newStatus = (patch.status !== undefined) ? patch.status : lot.status;
+    if (patch.rate === undefined) {
+      if (newStatus === "disponible") patch.rate = null;
+      else if (lot.rate == null) patch.rate = usdDopRate;
+    }
+
     const updatedAt = new Date().toISOString();
     Object.assign(lot, patch, { updatedAt });
     renderAll();
-
     if (sb) {
-      const row = {
-        status: lot.status, x: lot.x, y: lot.y, note: lot.note,
+      const row = { status: lot.status, x: lot.x, y: lot.y, note: lot.note,
         price: lot.price, currency: lot.currency, reserved_date: lot.reservedDate,
-        updated_at: updatedAt,
-      };
-      sb.from("lots").update(row)
-        .eq("project", activeProject)
-        .eq("id", Number(id))
-        .then(({ error }) => {
-          if (error) {
-            console.warn("❌ Error guardando en Supabase:", error);
-            toast("⚠️ Error al guardar");
-          } else {
-            console.log("✅ Solar #" + id + " guardado");
-          }
-        });
-    } else {
-      persistLocal(activeProject);
-    }
+        rate: lot.rate, updated_at: updatedAt };
+      sb.from("lots").update(row).eq("project", activeProject).eq("id", Number(id))
+        .then(({ error }) => { if (error) { console.warn("❌ Error guardando en Supabase:", error); toast("⚠️ Error al guardar"); } });
+    } else { persistLocal(activeProject); }
   }
 
   /* ---------------------------------------------------------------
@@ -689,63 +610,46 @@
     $("#placementLotLabel").textContent = "Solar #" + id;
     activeViewportEl().classList.add("is-placing");
     reopenAdminPanelAfterPlacement = !$("#adminPanel").hidden;
-    $("#adminPanel").hidden = true;
-    $("#adminOverlay").hidden = true;
+    $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true;
     reopenLotModalAfterPlacement = !$("#lotBackdrop").hidden;
     $("#lotBackdrop").hidden = true;
     exitFullscreenMap();
-    const mp = $("#mapPanel");
-    if (mp) mp.scrollIntoView({ behavior: "smooth", block: "start" });
+    const mp = $("#mapPanel"); if (mp) mp.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function exitPlacementMode() {
     placementLotId = null;
     $("#placementBanner").hidden = true;
     activeViewportEl().classList.remove("is-placing");
-    if (reopenAdminPanelAfterPlacement && isAdmin) {
-      $("#adminPanel").hidden = false;
-      $("#adminOverlay").hidden = false;
-      renderAdminTable();
-    }
+    if (reopenAdminPanelAfterPlacement && isAdmin) { $("#adminPanel").hidden = false; $("#adminOverlay").hidden = false; renderAdminTable(); }
     reopenAdminPanelAfterPlacement = false;
-    if (reopenLotModalAfterPlacement && activeLotId) {
-      openLotModal(activeLotId);
-    }
+    if (reopenLotModalAfterPlacement && activeLotId) openLotModal(activeLotId);
     reopenLotModalAfterPlacement = false;
   }
   $("#btnCancelPlacement").addEventListener("click", exitPlacementMode);
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { exitPlacementMode(); closeModals(); }
-  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { exitPlacementMode(); closeModals(); } });
 
   /* ---------------------------------------------------------------
-     11. VISORES OpenSeadragon  (uno por proyecto, independientes)
+     11. VISORES OpenSeadragon
   ----------------------------------------------------------------- */
-  const OSD = {}; // OSD.x , OSD.ix  -> instancias OpenSeadragon (se crean al mostrarse)
-  const VW = {    // estado de vista por proyecto
+  const OSD = {};
+  const VW = {
     x:  { ready: false, built: false, W: PROJECTS.x.imgW,  H: PROJECTS.x.imgH },
     ix: { ready: false, built: false, W: PROJECTS.ix.imgW, H: PROJECTS.ix.imgH },
   };
-  let IMG_W = PROJECTS.x.imgW, IMG_H = PROJECTS.x.imgH; // dims del proyecto ACTIVO
+  let IMG_W = PROJECTS.x.imgW, IMG_H = PROJECTS.x.imgH;
 
   function viewportEl(pk) { return $("#mapViewport-" + pk); }
   function activeViewportEl() { return viewportEl(activeProject); }
 
-  // Espera a que el visor esté realmente abierto (por evento O por sondeo,
-  // para no depender de atrapar el evento "open" en el momento exacto).
   function whenViewerOpen(v, cb) {
     let done = false;
     const fire = () => { if (done) return; done = true; try { cb(); } catch (e) { console.warn(e); } };
     if (v.isOpen && v.isOpen()) { fire(); return; }
     v.addHandler("open", fire);
     let tries = 0;
-    const iv = setInterval(() => {
-      if (v.isOpen && v.isOpen()) { clearInterval(iv); fire(); }
-      else if (++tries > 100) { clearInterval(iv); }
-    }, 100);
+    const iv = setInterval(() => { if (v.isOpen && v.isOpen()) { clearInterval(iv); fire(); } else if (++tries > 100) clearInterval(iv); }, 100);
   }
 
-  // Construye el visor de un proyecto. Solo se llama cuando su contenedor YA
-  // está visible (así OpenSeadragon puede medir el tamaño correctamente).
   function buildViewer(pk) {
     if (VW[pk].built) return OSD[pk];
     VW[pk].built = true;
@@ -756,28 +660,18 @@
       showNavigationControl: false,
       gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
       gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: true },
-      maxZoomPixelRatio: 4,
-      visibilityRatio: 1,
-      constrainDuringPan: true,
-      animationTime: 0.4,
-      springStiffness: 8,
+      maxZoomPixelRatio: 4, visibilityRatio: 1, constrainDuringPan: true, animationTime: 0.4, springStiffness: 8,
     });
     OSD[pk] = v;
-
     v.addHandler("open-failed", (e) => {
       VW[pk].ready = false;
-      console.warn("❌ No se pudo cargar el plano:", pk, e && e.message);
-      toast("⚠️ No se pudo cargar el plano de " + (pk === "ix" ? "Caleta IX" : "Caleta X") +
-            ". Revisa que la carpeta 'assets/" + (pk === "ix" ? "dzi-ix" : "dzi") + "' esté subida.");
+      toast("⚠️ No se pudo cargar el plano de " + (pk === "ix" ? "Caleta IX" : "Caleta X") + ". Revisa que la carpeta 'assets/" + (pk === "ix" ? "dzi-ix" : "dzi") + "' esté subida.");
     });
-
     v.addHandler("zoom", () => {
       if (pk !== activeProject) return;
       const pct = Math.round((v.viewport.getZoom() / v.viewport.getHomeZoom()) * 100);
       $("#zoomReadout").textContent = pct + "%";
     });
-
-    // Colocación de marcador (botón "Ubicar en el plano") — solo en el visor activo
     v.addHandler("canvas-click", (event) => {
       if (pk !== activeProject || !placementLotId || !event.quick) return;
       const viewportPoint = v.viewport.pointFromPixel(event.position);
@@ -788,38 +682,29 @@
       yPct = Math.max(0, Math.min(100, yPct));
       const lot = states[pk][placementLotId];
       const patch = { x: xPct, y: yPct };
-      if (lot && lot.status === "disponible") {
-        patch.status = "reservado";
-        if (!lot.reservedDate) patch.reservedDate = todayISODate();
-      }
+      if (lot && lot.status === "disponible") { patch.status = "reservado"; if (!lot.reservedDate) patch.reservedDate = todayISODate(); }
       updateLot(placementLotId, patch);
       toast(`Marcador colocado en el Solar #${placementLotId}`);
       exitPlacementMode();
     });
-
     whenViewerOpen(v, () => {
       const item = v.world.getItemAt(0);
       if (!item) return;
       const size = item.getContentSize();
       VW[pk].W = size.x; VW[pk].H = size.y; VW[pk].ready = true;
       if (pk === activeProject) { IMG_W = size.x; IMG_H = size.y; }
-      console.log("✓ Plano cargado:", pk, size.x + "x" + size.y);
       repaintMarkers(pk);
     });
-
     return v;
   }
 
-  // Mostrar solo el contenedor activo y construir SU visor (contenedor visible)
   viewportEl("x").style.display  = activeProject === "x"  ? "" : "none";
   viewportEl("ix").style.display = activeProject === "ix" ? "" : "none";
   buildViewer(activeProject);
-  let viewer = OSD[activeProject]; // puntero al visor ACTIVO (lo usan zoom, búsqueda, etc.)
+  let viewer = OSD[activeProject];
 
   function imageToViewportPoint(xPct, yPct) {
-    return viewer.viewport.imageToViewportCoordinates(
-      new OpenSeadragon.Point((xPct / 100) * IMG_W, (yPct / 100) * IMG_H)
-    );
+    return viewer.viewport.imageToViewportCoordinates(new OpenSeadragon.Point((xPct / 100) * IMG_W, (yPct / 100) * IMG_H));
   }
 
   $("#btnZoomIn").addEventListener("click", () => { try { viewer.viewport.zoomBy(1.3); } catch (e) {} });
@@ -827,43 +712,63 @@
   $("#btnZoomReset").addEventListener("click", () => { try { viewer.viewport.goHome(); } catch (e) {} });
 
   /* ---------------------------------------------------------------
+     11a. PANTALLA COMPLETA DE TODA LA PÁGINA (tipo F11)
+     - Pensado para la pantalla touch RICOH de 75". Funciona con toque o mouse.
+     - Usa la API de pantalla completa del navegador (con variantes para Safari).
+  ----------------------------------------------------------------- */
+  function isPageFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  }
+  function requestPageFullscreen() {
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (fn) { try { const r = fn.call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  }
+  function exitPageFullscreen() {
+    const fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (fn) { try { const r = fn.call(document); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  }
+  function syncFullscreenPageButton() {
+    const on = isPageFullscreen();
+    const exp = $("#iconPageExpand"), col = $("#iconPageCollapse"), lbl = $("#fullscreenPageLabel");
+    if (exp) exp.hidden = on;
+    if (col) col.hidden = !on;
+    if (lbl) lbl.textContent = on ? "Salir" : "Pantalla completa";
+  }
+  const btnFsPage = $("#btnFullscreenPage");
+  if (btnFsPage) {
+    btnFsPage.addEventListener("click", () => {
+      if (isPageFullscreen()) exitPageFullscreen(); else requestPageFullscreen();
+    });
+  }
+  ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange", "MSFullscreenChange"].forEach((ev) => {
+    document.addEventListener(ev, syncFullscreenPageButton);
+  });
+  syncFullscreenPageButton();
+
+  /* ---------------------------------------------------------------
      11b. CAMBIO DE PESTAÑA
   ----------------------------------------------------------------- */
   function switchProject(projKey) {
     if (!PROJECTS[projKey] || projKey === activeProject) return;
     activeProject = projKey;
-
-    // mostrar/ocultar contenedores ANTES de construir (para que OSD pueda medir)
     viewportEl("x").style.display  = projKey === "x"  ? "" : "none";
     viewportEl("ix").style.display = projKey === "ix" ? "" : "none";
-
-    buildViewer(projKey);          // construye su visor la primera vez (contenedor ya visible)
-    viewer = OSD[projKey];         // apunta al visor de este proyecto
+    buildViewer(projKey);
+    viewer = OSD[projKey];
     IMG_W = VW[projKey].W; IMG_H = VW[projKey].H;
-
-    exitPlacementMode();
-    closeModals();
+    exitPlacementMode(); closeModals();
     $("#searchInput").value = "";
     currentFilter = "activos";
     $$(".chip").forEach((c) => c.classList.toggle("is-active", c.dataset.filter === "activos"));
-
-    renderProjectChrome();
-    renderStats();
-    renderTabsMeta();
-    renderLotList();
-    renderAdminTable();
-
-    // el visor estaba oculto: forzar reencuadre/redibujo y repintar marcadores
+    renderProjectChrome(); renderStats(); renderTabsMeta(); renderLotList(); renderAdminTable();
     setTimeout(() => {
       try { viewer.viewport.goHome(true); } catch (e) {}
       try { viewer.forceRedraw && viewer.forceRedraw(); } catch (e) {}
       repaintMarkers(projKey);
     }, 60);
   }
-
-  $$(".project-tab").forEach((tab) => {
-    tab.addEventListener("click", () => switchProject(tab.dataset.project));
-  });
+  $$(".project-tab").forEach((tab) => { tab.addEventListener("click", () => switchProject(tab.dataset.project)); });
 
   /* ---------------------------------------------------------------
      11c. PANTALLA COMPLETA
@@ -874,8 +779,7 @@
     isMapFullscreen = true;
     mapPanel.classList.add("is-fullscreen");
     document.body.classList.add("map-fullscreen-active");
-    $("#iconExpand").hidden = true;
-    $("#iconCollapse").hidden = false;
+    $("#iconExpand").hidden = true; $("#iconCollapse").hidden = false;
     $("#btnMapExpand").setAttribute("aria-label", "Salir de pantalla completa");
   }
   function exitFullscreenMap() {
@@ -883,17 +787,12 @@
     isMapFullscreen = false;
     mapPanel.classList.remove("is-fullscreen");
     document.body.classList.remove("map-fullscreen-active");
-    $("#iconExpand").hidden = false;
-    $("#iconCollapse").hidden = true;
+    $("#iconExpand").hidden = false; $("#iconCollapse").hidden = true;
     $("#btnMapExpand").setAttribute("aria-label", "Ampliar plano a pantalla completa");
   }
   $("#btnMapExpand").addEventListener("click", () => {
-    if (isMapFullscreen) exitFullscreenMap();
-    else enterFullscreenMap();
-    setTimeout(() => {
-      try { viewer.viewport.goHome(true); } catch (e) {}
-      try { viewer.forceRedraw && viewer.forceRedraw(); } catch (e) {}
-    }, 60);
+    if (isMapFullscreen) exitFullscreenMap(); else enterFullscreenMap();
+    setTimeout(() => { try { viewer.viewport.goHome(true); } catch (e) {} try { viewer.forceRedraw && viewer.forceRedraw(); } catch (e) {} }, 60);
   });
 
   /* ---------------------------------------------------------------
@@ -901,18 +800,12 @@
   ----------------------------------------------------------------- */
   let activeLotId = null;
 
-  // Tasa que el admin tiene escrita en el campo del modal (si es válida), o la global.
   function modalRate() {
     const inp = $("#lotModalRateInput");
-    if (inp) {
-      const raw = inp.value.trim();
-      if (raw !== "") { const n = Number(raw.replace(/,/g, "")); if (!isNaN(n) && n > 0) return n; }
-    }
+    if (inp) { const raw = inp.value.trim(); if (raw !== "") { const n = Number(raw.replace(/,/g, "")); if (!isNaN(n) && n > 0) return n; } }
     return usdDopRate;
   }
 
-  // Vista previa del TOTAL: área × precio/m² = RD$ ... y su equivalente en US$
-  // usando la tarifa del dólar que el admin escribió.
   function updatePricePreview() {
     const preview = $("#lotModalPricePreview");
     if (!preview) return;
@@ -940,39 +833,28 @@
     $("#lotModalArea").textContent = fmtArea(lot.area);
     $("#lotModalStatusText").textContent = STATUS_LABEL[lot.status];
     $("#lotModalUpdated").textContent = fmtDate(lot.updatedAt);
-
-    // Precio público: dos casillas (RD$ y US$). El público solo las ve si el solar
-    // está DISPONIBLE; el admin siempre. En reservado/vendido se ocultan al público.
     const rowDOP = $("#lotModalPriceRowDOP");
     const rowUSD = $("#lotModalPriceRowUSD");
     if (canSeePrice(lot)) {
       const t = computeTotals(lot);
       $("#lotModalPriceDOP").textContent = t ? fmtMoney(t.dop, "DOP") : "A consultar";
       $("#lotModalPriceUSD").textContent = t ? fmtMoney(t.usd, "USD") : "A consultar";
-      rowDOP.hidden = false;
-      rowUSD.hidden = false;
-    } else {
-      rowDOP.hidden = true;
-      rowUSD.hidden = true;
-    }
-
+      rowDOP.hidden = false; rowUSD.hidden = false;
+    } else { rowDOP.hidden = true; rowUSD.hidden = true; }
     const reservedRow = $("#lotModalReservedRow");
     if (lot.status !== "disponible" && lot.reservedDate) {
       $("#lotModalReservedLabel").textContent = lot.status === "vendido" ? "Fecha de venta" : "Fecha de reserva";
       $("#lotModalReserved").textContent = fmtDateOnly(lot.reservedDate);
       reservedRow.hidden = false;
-    } else {
-      reservedRow.hidden = true;
-    }
-
+    } else { reservedRow.hidden = true; }
     const adminBox = $("#lotModalAdminControls");
     adminBox.hidden = !isAdmin;
     if (isAdmin) {
       $("#lotModalStatusSelect").value = lot.status;
       $("#lotModalNote").value = lot.note || "";
-      $("#lotModalCalcArea").textContent = fmtArea(lot.area); // m² exactos para la multiplicación
+      $("#lotModalCalcArea").textContent = fmtArea(lot.area);
       $("#lotModalPriceInput").value = lot.price != null ? lot.price : "";
-      $("#lotModalRateInput").value = Number(usdDopRate).toFixed(2); // tarifa del dólar actual
+      $("#lotModalRateInput").value = Number(usdDopRate).toFixed(2);
       $("#lotModalDateInput").value = lot.reservedDate || "";
       const hasPin = lot.x != null && lot.y != null;
       $("#btnPlaceMarker").textContent = hasPin ? "Reubicar marcador en el plano" : "Ubicar en el plano";
@@ -987,16 +869,13 @@
     $("#loginBackdrop").hidden = true;
     $("#loginError").hidden = true;
     $("#loginPassword").value = "";
+    const lu = $("#loginUser"); if (lu) lu.value = "";
   }
 
   $("#btnCloseLotModal").addEventListener("click", closeModals);
   $("#lotBackdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeModals(); });
-
-  // recalcular el total al escribir el precio por m²
   $("#lotModalPriceInput").addEventListener("input", updatePricePreview);
-  // recalcular el total al escribir la tarifa del dólar
   $("#lotModalRateInput").addEventListener("input", updatePricePreview);
-  // al terminar de escribir la tarifa, se guarda como tasa global (la verán todos)
   $("#lotModalRateInput").addEventListener("change", () => {
     const raw = $("#lotModalRateInput").value.trim();
     const n = raw === "" ? NaN : Number(raw.replace(/,/g, ""));
@@ -1005,23 +884,19 @@
   });
 
   function collectLotModalPatch() {
-    const status = $("#lotModalStatusSelect").value;
+    let status = $("#lotModalStatusSelect").value;
+    if (!ALLOWED_STATUS[status]) status = "disponible";
     const rawPrice = $("#lotModalPriceInput").value.trim();
-    const price = rawPrice === "" ? null : Number(rawPrice.replace(/,/g, ""));
+    let price = rawPrice === "" ? null : clampNumber(rawPrice.replace(/,/g, ""), 0, 1e12);
+    let note = String($("#lotModalNote").value || "").slice(0, CONFIG.NOTE_MAX);
     let reservedDate = $("#lotModalDateInput").value || null;
+    if (reservedDate && !/^\d{4}-\d{2}-\d{2}$/.test(reservedDate)) reservedDate = null;
     if (status !== "disponible" && !reservedDate) reservedDate = todayISODate();
-    return {
-      status,
-      note: $("#lotModalNote").value,
-      price: price != null && isNaN(price) ? null : price,
-      currency: "DOP", // el precio por m² siempre es en pesos
-      reservedDate,
-    };
+    return { status, note, price, currency: "DOP", reservedDate };
   }
 
   $("#btnSaveLot").addEventListener("click", () => {
     if (!activeLotId) return;
-    // guardar también la tarifa del dólar (global) por si el admin la cambió
     const rRaw = $("#lotModalRateInput").value.trim();
     const rn = rRaw === "" ? NaN : Number(rRaw.replace(/,/g, ""));
     if (!isNaN(rn) && rn > 0 && rn !== usdDopRate) saveManualRate(rn);
@@ -1048,47 +923,48 @@
      13. LOGIN ADMIN
   ----------------------------------------------------------------- */
   $("#btnAdminToggle").addEventListener("click", () => {
-    if (isAdmin) {
-      $("#adminPanel").hidden = false;
-      $("#adminOverlay").hidden = false;
-      renderAdminTable();
-    } else {
-      $("#loginBackdrop").hidden = false;
-      setTimeout(() => $("#loginPassword").focus(), 50);
-    }
+    if (isAdmin) { $("#adminPanel").hidden = false; $("#adminOverlay").hidden = false; renderAdminTable(); updateRateDisplay(); }
+    else { $("#loginBackdrop").hidden = false; setTimeout(() => $("#loginPassword").focus(), 50); }
   });
 
   $("#loginForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    const val = $("#loginPassword").value;
-    if (val === CONFIG.ADMIN_PASSWORD) {
-      setAdmin(true);
-      closeModals();
+    const user = ($("#loginUser").value || "").trim().toLowerCase();
+    const pass = $("#loginPassword").value || "";
+    const ok = (user === CONFIG.ADMIN_USER.toLowerCase() && pass === CONFIG.ADMIN_PASSWORD);
+    if (ok) {
+      setAdmin(true); closeModals();
       toast("Sesión de administrador iniciada");
-      $("#adminPanel").hidden = false;
-      $("#adminOverlay").hidden = false;
-      renderAdminTable();
-    } else {
-      $("#loginError").hidden = false;
-    }
+      $("#adminPanel").hidden = false; $("#adminOverlay").hidden = false;
+      renderAdminTable(); updateRateDisplay();
+    } else { $("#loginError").hidden = false; }
   });
   $("#btnCancelLogin").addEventListener("click", closeModals);
 
-  $("#btnCloseAdmin").addEventListener("click", () => {
-    $("#adminPanel").hidden = true;
-    $("#adminOverlay").hidden = true;
-  });
-  $("#adminOverlay").addEventListener("click", () => {
-    $("#adminPanel").hidden = true;
-    $("#adminOverlay").hidden = true;
-  });
-  $("#btnLogoutAdmin").addEventListener("click", () => {
-    setAdmin(false);
-    toast("Sesión cerrada");
-  });
+  $("#btnCloseAdmin").addEventListener("click", () => { $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; });
+  $("#adminOverlay").addEventListener("click", () => { $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; });
+  $("#btnLogoutAdmin").addEventListener("click", () => { setAdmin(false); toast("Sesión cerrada"); });
 
   $("#adminSearch").addEventListener("input", renderAdminTable);
   $("#adminStatusFilter").addEventListener("change", renderAdminTable);
+
+  // ----- Tasa del dólar en el panel admin -----
+  function saveRateFromInput() {
+    const raw = ($("#rateInput").value || "").trim();
+    const n = raw === "" ? NaN : Number(raw.replace(/,/g, ""));
+    if (isNaN(n) || n <= 0) { toast("Escribe una tasa válida (ej. 60.80)"); return; }
+    saveManualRate(n);
+    toast("Tasa fija aplicada: RD$ " + n.toFixed(2) + " por US$1");
+  }
+  const btnSaveRate = $("#btnSaveRate");
+  if (btnSaveRate) btnSaveRate.addEventListener("click", saveRateFromInput);
+  const rateInputEl = $("#rateInput");
+  if (rateInputEl) rateInputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") saveRateFromInput(); });
+  const btnUseLive = $("#btnUseLiveRate");
+  if (btnUseLive) btnUseLive.addEventListener("click", () => {
+    saveManualRate(NaN); // quita la tasa fija -> vuelve a la automática (Banco Popular / mercado)
+    toast("Tasa automática activada (Banco Popular / mercado)");
+  });
 
   $("#btnExportData").addEventListener("click", () => {
     const payload = { project: activeProject, projectName: P().title.replace(/\u00A0/g, " "), lots: currentState() };
@@ -1096,8 +972,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `jardines-caleta-${activeProject}-solares.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.click(); URL.revokeObjectURL(url);
   });
 
   /* ---------------------------------------------------------------
@@ -1121,10 +996,7 @@
     const collapsed = sidebarEl.classList.toggle("is-collapsed");
     $("#btnSidebarToggle").setAttribute("aria-expanded", String(!collapsed));
   });
-  if (window.innerWidth <= 720) {
-    sidebarEl.classList.add("is-collapsed");
-    $("#btnSidebarToggle").setAttribute("aria-expanded", "false");
-  }
+  if (window.innerWidth <= 720) { sidebarEl.classList.add("is-collapsed"); $("#btnSidebarToggle").setAttribute("aria-expanded", "false"); }
 
   /* ---------------------------------------------------------------
      15. BUSCADOR
@@ -1132,119 +1004,55 @@
   function locateLot(id) {
     if (!currentState()[id]) { toast("No existe el solar #" + id); return false; }
     const lot = currentState()[id];
-
     if (lot.x != null && lot.y != null && VW[activeProject] && VW[activeProject].ready) {
       const point = imageToViewportPoint(lot.x, lot.y);
       viewer.viewport.panTo(point, false);
       viewer.viewport.zoomTo(viewer.viewport.getHomeZoom() * 7, null, false);
     }
-
     const wasOnlyActive = currentFilter === "activos" && lot.status === "disponible";
     if (wasOnlyActive) {
       currentFilter = "todos";
       $$(".chip").forEach((c) => c.classList.toggle("is-active", c.dataset.filter === "todos"));
       renderLotList();
     }
-    if (sidebarEl.classList.contains("is-collapsed")) {
-      sidebarEl.classList.remove("is-collapsed");
-      $("#btnSidebarToggle").setAttribute("aria-expanded", "true");
-    }
+    if (sidebarEl.classList.contains("is-collapsed")) { sidebarEl.classList.remove("is-collapsed"); $("#btnSidebarToggle").setAttribute("aria-expanded", "true"); }
     const row = document.querySelector(`.lot-row[data-lot-id="${id}"]`);
-    if (row) {
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
-      row.classList.remove("flash");
-      requestAnimationFrame(() => row.classList.add("flash"));
-    }
+    if (row) { row.scrollIntoView({ behavior: "smooth", block: "center" }); row.classList.remove("flash"); requestAnimationFrame(() => row.classList.add("flash")); }
     return true;
   }
-
-  function performSearch() {
-    const id = $("#searchInput").value.trim();
-    if (!id) return;
-    locateLot(id);
-  }
-
-  $("#searchInput").addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    performSearch();
-  });
+  function performSearch() { const id = $("#searchInput").value.trim(); if (!id) return; locateLot(id); }
+  $("#searchInput").addEventListener("keydown", (e) => { if (e.key !== "Enter") return; performSearch(); });
   $("#btnSearchGo").addEventListener("click", performSearch);
-
-  /* ---------------------------------------------------------------
-     15c. CALCULADORA PARA CLIENTES (m² × precio/m² = total RD$ y US$)
-     - Visible para cualquier usuario. Usa la misma tarifa del dólar
-       que está activa en el sistema (la que fija el admin o la de internet).
-  ----------------------------------------------------------------- */
-  function renderCalc() {
-    const out = $("#calcResult");
-    if (!out) return;
-    const aEl = $("#calcArea");
-    const pEl = $("#calcPrice");
-    const a = aEl ? Number((aEl.value || "").replace(/,/g, "")) : NaN;
-    const p = pEl ? Number((pEl.value || "").replace(/,/g, "")) : NaN;
-    if (isNaN(a) || isNaN(p) || a <= 0 || p <= 0) { out.textContent = "—"; return; }
-    const dop = a * p;
-    out.innerHTML = `<b>${fmtMoney(dop, "DOP")}</b>`;
-  }
-  if ($("#calcArea")) $("#calcArea").addEventListener("input", renderCalc);
-  if ($("#calcPrice")) $("#calcPrice").addEventListener("input", renderCalc);
 
   /* ---------------------------------------------------------------
      15b. BOTÓN MARCAR
   ----------------------------------------------------------------- */
   $("#btnAdminMark").addEventListener("click", () => {
     const id = $("#searchInput").value.trim();
-    if (!id) {
-      toast("Escribe el número del solar");
-      $("#searchInput").focus();
-      return;
-    }
+    if (!id) { toast("Escribe el número del solar"); $("#searchInput").focus(); return; }
     if (!currentState()[id]) { toast("No existe el solar #" + id); return; }
-    exitFullscreenMap();
-    locateLot(id);
-    openLotModal(id);
+    exitFullscreenMap(); locateLot(id); openLotModal(id);
   });
 
   /* ---------------------------------------------------------------
-     17. INICIALIZACIÓN (ESPERA A SUPABASE PRIMERO)
+     17. INICIALIZACIÓN
   ----------------------------------------------------------------- */
   async function initializeApp() {
-    console.log("⏳ Inicializando aplicación...");
-
-    // Cargar la tasa fija del admin (global) y suscribirse a sus cambios
     await loadManualRate();
     subscribeRateRealtime();
-
-    // Consultar la tasa del dólar en tiempo real (no bloquea el arranque)
     fetchUsdDopRate();
-    // Refrescar la tasa cada 30 minutos para que siga "en vivo"
     setInterval(fetchUsdDopRate, 30 * 60 * 1000);
-
-    // Cargar datos de Supabase
-    if (sb) {
-      await loadStateFromSupabase();
-      subscribeRealtime();
-    }
-
-    // Configurar DOM
+    if (sb) { await loadStateFromSupabase(); subscribeRealtime(); }
     viewportEl("x").style.aspectRatio  = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
     viewportEl("ix").style.aspectRatio = PROJECTS.ix.imgW + " / " + PROJECTS.ix.imgH;
+    await checkAdminSession();
     setAdmin(isAdmin);
-
-    // AHORA renderizar
     renderAll();
     repaintMarkers("x");
     repaintMarkers("ix");
-
     console.log("✅ === APP LISTA ===");
   }
 
-  // Esperar a que el DOM esté listo
-  if (document.readyState === 'loading') {
-    console.log("📄 DOM aún cargando, esperando...");
-    document.addEventListener('DOMContentLoaded', initializeApp);
-  } else {
-    console.log("📄 DOM ya listo, inicializando app...");
-    initializeApp();
-  }
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initializeApp); }
+  else { initializeApp(); }
 })();

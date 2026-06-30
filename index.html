@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 
@@ -25,6 +25,17 @@
       <h1 id="projectTitle">Urbanización Jardines de Caleta&nbsp;X</h1>
       <p id="projectSubtitle">La Romana, República Dominicana — Plano general de distribución de solares</p>
     </div>
+  </div>
+
+  <div class="titleblock__company" aria-label="Adonel Services">
+    <span class="titleblock__logobadge">
+      <img src="logo-adonel.png" alt="Logo Adonel Services" class="titleblock__logo"
+           onerror="this.style.display='none'">
+    </span>
+    <span class="titleblock__company-text">
+      <span class="titleblock__company-name">ADONEL SERVICES, SRL</span>
+      <span class="titleblock__company-tag">¡SOLARES Y MÁS! 📐</span>
+    </span>
   </div>
 
   <div class="titleblock__stats" id="statsRow" aria-label="Resumen de disponibilidad">
@@ -87,21 +98,16 @@
     <span class="legend-item"><i class="dot dot--sold"></i>Vendido</span>
   </div>
 
-  <div class="toolbar__calc" aria-label="Calculadora de precio">
-    <span class="toolbar__calc-title">Calculadora</span>
-    <input type="number" id="calcArea" class="calc-input" min="0" step="any" inputmode="decimal" placeholder="metros m²">
-    <span class="calc-op">×</span>
-    <span class="calc-prefix">RD$</span>
-    <input type="number" id="calcPrice" class="calc-input" min="0" step="any" inputmode="decimal" placeholder="precio por m²">
-    <span class="calc-op">=</span>
-    <span class="calc-result" id="calcResult">—</span>
-  </div>
-
   <div class="toolbar__zoom">
     <button class="btn btn--icon" id="btnZoomOut" type="button" title="Alejar" aria-label="Alejar">−</button>
     <span class="zoom-readout" id="zoomReadout">100%</span>
     <button class="btn btn--icon" id="btnZoomIn" type="button" title="Acercar" aria-label="Acercar">+</button>
     <button class="btn btn--ghost btn--small" id="btnZoomReset" type="button">Restablecer</button>
+    <button class="btn btn--ghost btn--small" id="btnFullscreenPage" type="button" title="Pantalla completa (toda la página)" aria-label="Pantalla completa">
+      <svg id="iconPageExpand" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 00-2 2v4M15 3h4a2 2 0 012 2v4M9 21H5a2 2 0 01-2-2v-4M15 21h4a2 2 0 002-2v-4"/></svg>
+      <svg id="iconPageCollapse" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+      <span id="fullscreenPageLabel">Pantalla completa</span>
+    </button>
   </div>
 </div>
 
@@ -185,6 +191,21 @@
     </table>
   </div>
 
+  <!-- Tasa del dólar (admin): se aplica a los DISPONIBLES; reservados/vendidos conservan la suya -->
+  <div class="admin-rate" id="adminRateBox">
+    <div class="admin-rate__head">
+      <span class="admin-rate__title">Tasa del dólar</span>
+      <span class="admin-rate__eff" id="rateEffective">—</span>
+    </div>
+    <div class="admin-rate__edit">
+      <span class="admin-rate__prefix">RD$</span>
+      <input type="number" id="rateInput" min="0" step="any" inputmode="decimal" placeholder="ej. 60.80 (Banco Popular)">
+      <button class="btn btn--primary btn--small" id="btnSaveRate" type="button">Fijar</button>
+      <button class="btn btn--ghost btn--small" id="btnUseLiveRate" type="button" hidden>Automática</button>
+    </div>
+    <p class="admin-rate__hint" id="rateHint"></p>
+  </div>
+
   <div class="admin-panel__foot">
     <button class="btn btn--ghost-light btn--small" id="btnExportData" type="button">Exportar datos (JSON)</button>
     <button class="btn btn--danger btn--small" id="btnLogoutAdmin" type="button">Cerrar sesión</button>
@@ -195,8 +216,9 @@
 <div class="modal-backdrop" id="loginBackdrop" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <h2 id="loginTitle">Acceso de administrador</h2>
-    <p class="modal__hint">Introduce la contraseña para marcar y desmarcar solares.</p>
+    <p class="modal__hint">Introduce el usuario y la contraseña para marcar y desmarcar solares.</p>
     <form id="loginForm">
+      <input type="text" id="loginUser" placeholder="Usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required>
       <p class="modal__error" id="loginError" hidden>Contraseña incorrecta. Intenta de nuevo.</p>
       <div class="modal__actions">
@@ -267,6 +289,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=18"></script>
+<script src="script.js?v=28"></script>
 </body>
 </html>

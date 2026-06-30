@@ -5,49 +5,48 @@
    ================================================================= */
 
 :root{
-  /* color */
-  --ink:        #0B2540;   /* azul tinta, casi negro */
+  --ink:        #0B2540;
   --blue-700:   #0E3A66;
-  --blue-600:   #1463A8;   /* azul marca, principal */
-  --blue-500:   #2E86D6;   /* azul interactivo */
+  --blue-600:   #1463A8;
+  --blue-500:   #2E86D6;
   --blue-100:   #DCEBF8;
-  --sky-50:     #F4F9FD;   /* fondo general */
+  --sky-50:     #F4F9FD;
   --paper:      #FFFFFF;
-  --line:       #CBDDEC;   /* líneas finas tipo plano */
+  --line:       #CBDDEC;
   --line-soft:  #E4EEF7;
 
-  /* estado */
   --available:  #1FA66B;
   --available-bg: #E7F6EE;
   --reserved:   #E08A2C;
   --reserved-bg:#FCEEDC;
   --sold:       #D6473F;
   --sold-bg:    #FBE6E4;
+  --gold:       #E0A82E;
+  --gold-soft:  #FBF1DA;
 
-  /* tipografía */
   --f-display: 'Space Grotesk', sans-serif;
   --f-body: 'Inter', sans-serif;
   --f-mono: 'IBM Plex Mono', monospace;
 
-  --radius: 10px;
+  --radius: 12px;
   --shadow-sm: 0 1px 2px rgba(11,37,64,.06), 0 1px 1px rgba(11,37,64,.04);
   --shadow-md: 0 8px 24px rgba(11,37,64,.10), 0 2px 6px rgba(11,37,64,.06);
   --shadow-lg: 0 24px 60px rgba(11,37,64,.22);
-
-  /* zona táctil mínima recomendada en móvil */
   --tap: 40px;
 }
 
 *{ box-sizing: border-box; }
-[hidden]{ display: none !important; } /* el atributo hidden siempre debe ganar sobre display:flex de los componentes */
+[hidden]{ display: none !important; }
 html,body{ height:100%; }
 body{
   margin:0;
   font-family: var(--f-body);
-  background: var(--sky-50);
+  background:
+    radial-gradient(1200px 600px at 100% -10%, #EAF3FB 0%, rgba(234,243,251,0) 60%),
+    var(--sky-50);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden; /* evita scroll horizontal accidental en móvil */
+  overflow-x: hidden;
 }
 h1,h2,h3{ font-family: var(--f-display); margin:0; }
 button{ font-family: var(--f-body); }
@@ -61,15 +60,15 @@ button{ font-family: var(--f-body); }
 .btn{
   display:inline-flex; align-items:center; gap:6px;
   font-size: 13.5px; font-weight:600;
-  padding: 9px 14px; border-radius: 8px;
+  padding: 9px 14px; border-radius: 9px;
   border: 1px solid transparent;
   cursor:pointer; white-space:nowrap;
-  transition: background .15s, color .15s, border-color .15s, transform .1s;
+  transition: background .15s, color .15s, border-color .15s, transform .1s, box-shadow .15s;
   min-height: var(--tap);
 }
 .btn:active{ transform: translateY(1px); }
-.btn--primary{ background: var(--blue-600); color:#fff; }
-.btn--primary:hover{ background: var(--blue-700); }
+.btn--primary{ background: var(--blue-600); color:#fff; box-shadow: 0 2px 8px rgba(20,99,168,.30); }
+.btn--primary:hover{ background: var(--blue-700); box-shadow: 0 4px 14px rgba(20,99,168,.38); }
 .btn--ghost{ background: transparent; border-color: var(--line); color: var(--blue-700); }
 .btn--ghost:hover{ background: var(--blue-100); }
 .btn--ghost-light{ background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.35); color:#fff; }
@@ -81,14 +80,8 @@ button{ font-family: var(--f-body); }
 .btn--icon:hover{ background: var(--blue-100); }
 .btn--block{ width:100%; justify-content:center; margin-top:12px; }
 .btn--mark{ flex-shrink:0; }
-.btn--abonos{ background: var(--blue-100); color: var(--blue-700); border-color: var(--blue-100); margin-top:12px; justify-content:center; }
-.btn--abonos:hover{ background: #cfe3f6; }
 
-/* la ventana de abonos va por encima del cuadro del solar */
-#paymentBackdrop{ z-index: 70; }
-.modal--pay{ max-width: 420px; }
-
-/* visible solo cuando el modo admin está activo (la clase la añade script.js en <body>) */
+/* visible solo cuando el modo admin está activo */
 .admin-only{ display: none; }
 body.is-admin .admin-only{ display: inline-flex; }
 
@@ -96,14 +89,13 @@ body.is-admin .admin-only{ display: inline-flex; }
 .titleblock{
   display:flex; align-items:center; gap:24px;
   flex-wrap: wrap;
-  padding: 14px 24px;
-  background: linear-gradient(180deg, var(--blue-700), var(--ink));
+  padding: 15px 24px;
+  background: linear-gradient(135deg, var(--blue-700) 0%, var(--ink) 70%);
   color: #fff;
   border-bottom: 3px solid var(--blue-500);
   position: relative;
 }
 .titleblock::after{
-  /* línea fina tipo regla de plano */
   content:"";
   position:absolute; left:0; right:0; bottom:-3px; height:1px;
   background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 6px, transparent 6px 14px);
@@ -114,8 +106,26 @@ body.is-admin .admin-only{ display: inline-flex; }
 .titleblock__text h1{ font-size: 19px; font-weight:700; letter-spacing:.2px; }
 .titleblock__text p{ margin:2px 0 0; font-size:12px; color: #B9D3EA; font-family: var(--f-mono); }
 
-.titleblock__stats{ display:flex; gap:18px; margin-left:auto; }
-.stat{ text-align:center; min-width: 64px; }
+/* ---------- marca de la empresa (Adonel Services) ---------- */
+.titleblock__company{ display:flex; align-items:center; gap:11px; margin-left:auto; min-width:0; }
+.titleblock__logobadge{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  width:48px; height:48px; border-radius:13px; background:#fff;
+  padding:5px; box-shadow: 0 4px 14px rgba(0,0,0,.30);
+}
+.titleblock__logo{ width:100%; height:100%; object-fit:contain; display:block; }
+.titleblock__company-text{ display:flex; flex-direction:column; line-height:1.05; min-width:0; }
+.titleblock__company-name{ font-family: var(--f-display); font-size:15px; font-weight:700; color:#fff; letter-spacing:.3px; white-space:nowrap; }
+.titleblock__company-tag{ font-family: var(--f-display); font-size:12px; font-weight:600; color:#EBC76A; letter-spacing:.4px; margin-top:1px; }
+#loginUser{ margin-bottom:10px; }
+
+.titleblock__stats{ display:flex; gap:10px; margin-left:auto; }
+.stat{
+  text-align:center; min-width: 66px;
+  padding: 6px 12px; border-radius: 10px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+}
 .stat__value{ display:block; font-family: var(--f-mono); font-size:20px; font-weight:600; }
 .stat__label{ display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:#9DBADB; margin-top:2px; }
 .stat--available .stat__value{ color:#6FE0AC; }
@@ -161,9 +171,11 @@ body.is-admin .admin-only{ display: inline-flex; }
 }
 .toolbar__search{
   display:flex; align-items:center; gap:8px;
-  background: var(--sky-50); border:1px solid var(--line); border-radius:8px;
+  background: var(--sky-50); border:1px solid var(--line); border-radius:9px;
   padding: 4px 4px 4px 12px; flex: 1 1 220px; max-width: 320px; color: var(--blue-700);
+  transition: border-color .15s, box-shadow .15s;
 }
+.toolbar__search:focus-within{ border-color: var(--blue-500); box-shadow: 0 0 0 3px rgba(46,134,214,.15); }
 .toolbar__search input{
   border:none; background:transparent; outline:none; font-size:13.5px; width:100%; color: var(--ink); font-family: var(--f-mono);
   padding: 7px 0;
@@ -184,23 +196,6 @@ body.is-admin .admin-only{ display: inline-flex; }
 .toolbar__zoom{ display:flex; align-items:center; gap:8px; margin-left:auto; }
 .zoom-readout{ font-family: var(--f-mono); font-size:12.5px; color:#4A6A8A; min-width:42px; text-align:center; }
 
-/* ---------- calculadora para clientes (en la barra) ---------- */
-.toolbar__calc{
-  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-  padding:5px 10px; border:1px solid var(--line); border-radius:8px; background: var(--sky-50);
-}
-.toolbar__calc-title{ font-size:12.5px; font-weight:700; color: var(--blue-700); margin-right:2px; }
-.toolbar__calc .calc-input{
-  width:96px; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:7px;
-  background:#fff; font-family: var(--f-mono); color: var(--ink);
-}
-.toolbar__calc .calc-op{ font-family: var(--f-mono); font-size:15px; font-weight:700; color: var(--blue-500); }
-.toolbar__calc .calc-prefix{ font-family: var(--f-mono); font-size:12.5px; font-weight:600; color: var(--blue-700); }
-.toolbar__calc .calc-result{
-  font-family: var(--f-mono); font-size:13px; color:#5B7894; min-width:120px;
-}
-.toolbar__calc .calc-result b{ color: var(--blue-700); font-size:13.5px; }
-
 /* ---------- placement banner ---------- */
 .placement-banner{
   display:flex; align-items:center; justify-content:center; gap:16px;
@@ -211,7 +206,7 @@ body.is-admin .admin-only{ display: inline-flex; }
 /* ---------- LAYOUT ---------- */
 .layout{
   display:grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 330px;
   gap: 18px;
   padding: 18px 24px 28px;
   align-items: start;
@@ -223,12 +218,10 @@ body.is-admin .admin-only{ display: inline-flex; }
   background: var(--paper);
   border:1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   padding: 14px;
 }
-.map-panel__reg{
-  position:absolute; width:18px; height:18px; pointer-events:none; opacity:.55;
-}
+.map-panel__reg{ position:absolute; width:18px; height:18px; pointer-events:none; opacity:.55; }
 .map-panel__reg::before, .map-panel__reg::after{ content:""; position:absolute; background: var(--blue-500); }
 .map-panel__reg::before{ width:100%; height:1.5px; top:50%; transform:translateY(-50%); }
 .map-panel__reg::after{ height:100%; width:1.5px; left:50%; transform:translateX(-50%); }
@@ -246,25 +239,21 @@ body.is-admin .admin-only{ display: inline-flex; }
 .map-panel__expand:hover{ background: var(--blue-100); }
 
 .map-viewport{
-  position:relative;
-  width:100%;
-  aspect-ratio: 10960 / 6476; /* proporción inicial; script.js la ajusta por proyecto */
+  position:relative; width:100%;
+  aspect-ratio: 10960 / 6476;
   overflow:hidden;
   background:
     linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/24px 24px,
     linear-gradient(90deg, var(--line-soft) 1px, transparent 1px) 0 0/24px 24px,
     #fff;
-  border-radius: 6px;
-  touch-action: none; /* OpenSeadragon necesita manejar sus propios gestos de pellizco/arrastre */
+  border-radius: 8px;
+  touch-action: none;
 }
 .map-viewport.is-placing{ cursor: crosshair; }
 .map-viewport .openseadragon-canvas:focus{ outline: none; }
 
-.map-panel__hint{
-  margin: 8px 2px 0; font-size: 11.5px; color:#7C95AE; text-align:center;
-}
+.map-panel__hint{ margin: 8px 2px 0; font-size: 11.5px; color:#7C95AE; text-align:center; }
 
-/* pantalla completa del plano (pseudo-fullscreen vía clase, funciona en cualquier navegador móvil) */
 .map-panel.is-fullscreen{
   position: fixed; inset: 0; z-index: 90;
   border-radius: 0; border: none;
@@ -273,20 +262,16 @@ body.is-admin .admin-only{ display: inline-flex; }
   background: var(--ink);
 }
 .map-panel.is-fullscreen .map-panel__reg{ display:none; }
-/* en pantalla completa dejamos que el contenedor ocupe todo el espacio disponible;
-   OpenSeadragon encuadra el plano completo dentro de ese espacio automáticamente
-   (como "letterbox"), sin necesidad de calcular tamaños a mano */
 .map-panel.is-fullscreen .map-viewport{ flex: 1; width: 100%; aspect-ratio: auto; max-height: 100%; }
 .map-panel.is-fullscreen .map-panel__hint{ color:#9DBADB; flex-shrink:0; }
 body.map-fullscreen-active{ overflow: hidden; }
 
-/* ---------- markers (insertados como overlays de OpenSeadragon — ver script.js) ---------- */
+/* ---------- markers ---------- */
 .marker{
   display:flex; align-items:center; justify-content:center;
   width:26px; height:26px; border-radius:50%;
   font-size:13px; font-weight:700; color:#fff;
-  cursor:pointer;
-  border:2px solid #fff;
+  cursor:pointer; border:2px solid #fff;
   box-shadow: 0 2px 6px rgba(0,0,0,.35);
   pointer-events:auto; touch-action:none;
 }
@@ -299,61 +284,97 @@ body.map-fullscreen-active{ overflow: hidden; }
   background: var(--paper);
   border:1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   padding: 16px;
   display:flex; flex-direction:column; gap:12px;
   max-height: calc(100vh - 220px);
 }
 .sidebar__collapse-toggle{
   display:flex; align-items:center; justify-content:space-between;
-  background:none; border:none; padding:0; margin:0; cursor:default; width:100%;
-  color: inherit; text-align:left;
+  background:none; border:none; padding:0 0 12px; margin:0; cursor:default; width:100%;
+  color: inherit; text-align:left; border-bottom:1px solid var(--line-soft);
 }
-.sidebar__collapse-toggle h2{ font-size:16px; }
+.sidebar__collapse-toggle h2{ font-size:16px; letter-spacing:.2px; }
 .sidebar__chevron{ display:none; flex-shrink:0; transition: transform .15s; }
 .sidebar__body{ display:flex; flex-direction:column; gap:12px; flex:1; min-height:0; }
 .filter-chips{ display:flex; gap:6px; flex-wrap:wrap; }
 .chip{
-  font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:999px;
+  font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:999px;
   border:1px solid var(--line); background:#fff; color:#5B7894; cursor:pointer;
-  min-height: 30px;
+  min-height: 32px; transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
 }
-.chip.is-active{ background: var(--blue-600); color:#fff; border-color: var(--blue-600); }
+.chip:hover{ border-color: var(--blue-500); color: var(--blue-700); }
+.chip.is-active{ background: var(--blue-600); color:#fff; border-color: var(--blue-600); box-shadow: 0 2px 8px rgba(20,99,168,.30); }
 
-.lot-list{ list-style:none; margin:0; padding:0; overflow-y:auto; display:flex; flex-direction:column; gap:8px; flex:1; -webkit-overflow-scrolling: touch; }
+.lot-list{ list-style:none; margin:0; padding:0 2px 2px 0; overflow-y:auto; display:flex; flex-direction:column; gap:9px; flex:1; -webkit-overflow-scrolling: touch; }
+
+/* ===== TARJETA DE SOLAR (lista) — rediseño estético ===== */
 .lot-row{
-  display:flex; align-items:center; gap:10px;
-  padding: 9px 10px; border:1px solid var(--line-soft); border-radius:8px;
-  cursor:pointer; transition: border-color .12s, background .12s;
+  position:relative;
+  flex: 0 0 auto;            /* evita que las tarjetas se encojan dentro del scroll */
+  display:flex; align-items:center; gap:12px;
+  padding: 11px 13px 11px 12px;
+  border:1px solid var(--line-soft);
+  border-left:4px solid var(--line);   /* franja de color según estado */
+  border-radius:12px;
+  background:#fff;
+  cursor:pointer;
+  transition: border-color .14s, background .14s, box-shadow .16s, transform .12s;
 }
-.lot-row:hover{ border-color: var(--blue-500); background: var(--sky-50); }
+.lot-row.is-disponible{ border-left-color: var(--available); }
+.lot-row.is-reservado{ border-left-color: var(--gold); }
+.lot-row.is-vendido{ border-left-color: var(--gold); }
+/* franja vertical de color según estado: ver border-left en .lot-row */
+.lot-row:hover{
+  border-top-color: var(--blue-500);
+  border-right-color: var(--blue-500);
+  border-bottom-color: var(--blue-500);
+  background: var(--sky-50);
+  box-shadow: 0 6px 18px rgba(11,37,64,.10);
+  transform: translateY(-1px);
+}
 .lot-row.flash{ animation: flash 1s ease; }
-@keyframes flash{ 0%,100%{ background:transparent; } 35%{ background: var(--blue-100); } }
+@keyframes flash{ 0%,100%{ background:#fff; } 35%{ background: var(--blue-100); } }
 
 .lot-row__badge{
-  font-family: var(--f-mono); font-size:11.5px; font-weight:600;
-  width:34px; height:34px; border-radius:8px; flex-shrink:0;
+  font-family: var(--f-mono); font-size:12px; font-weight:700;
+  width:38px; height:38px; border-radius:10px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
+  box-shadow: inset 0 0 0 1px rgba(11,37,64,.04);
 }
 .lot-row__badge.is-disponible{ background: var(--available-bg); color: var(--available); }
-.lot-row__badge.is-reservado{ background: #FCF3D4; color: #B07D08; }
-.lot-row__badge.is-vendido{ background: #FCF3D4; color: #B07D08; }
+.lot-row__badge.is-reservado{ background: var(--gold-soft); color: #B07D08; }
+.lot-row__badge.is-vendido{ background: var(--gold-soft); color: #B07D08; }
 
-.lot-row__info{ flex:1; min-width:0; }
-.lot-row__title{ font-size:13px; font-weight:600; }
-.lot-row__meta{ font-size:11.5px; color:#7C95AE; font-family: var(--f-mono); }
-.lot-row__status{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
-.lot-row__status.is-disponible{ color: var(--available); }
-.lot-row__status.is-reservado{ color: #B07D08; }
-.lot-row__status.is-vendido{ color: #B07D08; }
+.lot-row__info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.lot-row__title{ font-size:13.5px; font-weight:700; color: var(--ink); }
+.lot-row__meta{ font-size:11.5px; color:#7C95AE; font-family: var(--f-mono); font-weight:500; }
+
+/* estado como "pill" */
+.lot-row__status{
+  align-self:flex-start;
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  padding: 2px 9px; border-radius:999px; margin-top:1px;
+}
+.lot-row__status.is-disponible{ color: var(--available); background: var(--available-bg); }
+.lot-row__status.is-reservado{ color: #9A6B05; background: var(--gold-soft); }
+.lot-row__status.is-vendido{ color: #9A6B05; background: var(--gold-soft); }
 
 .empty-state{ font-size:13px; color:#7C95AE; text-align:center; padding: 20px 6px; }
 
-/* ---------- ADMIN PANEL ---------- */
-.admin-overlay{
-  position:fixed; inset:0; background: rgba(11,37,64,.35);
-  backdrop-filter: blur(1px); z-index: 40;
+/* precio en la lista: RD$ arriba (destacado) y US$ debajo */
+.lot-row__price{
+  font-size:13.5px; font-weight:700; color: var(--blue-700);
+  font-family: var(--f-mono); margin-top:4px; letter-spacing:.2px; line-height:1.2;
 }
+.lot-row__price-usd{
+  font-size:12px; font-weight:600; color:#5B7894;
+  font-family: var(--f-mono); margin-top:1px; line-height:1.2;
+}
+.lot-row__date{ font-size:11.5px; color:#5B7894; font-family: var(--f-mono); margin-top:3px; }
+
+/* ---------- ADMIN PANEL ---------- */
+.admin-overlay{ position:fixed; inset:0; background: rgba(11,37,64,.35); backdrop-filter: blur(1px); z-index: 40; }
 .admin-panel{
   position:fixed; top:0; right:0; height:100%; height:100dvh; width:min(420px, 92vw);
   background: var(--paper); z-index: 41;
@@ -362,10 +383,7 @@ body.map-fullscreen-active{ overflow: hidden; }
   animation: slideIn .18s ease;
 }
 @keyframes slideIn{ from{ transform: translateX(24px); opacity:0; } to{ transform:none; opacity:1; } }
-.admin-panel__head{
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 16px 18px; border-bottom:1px solid var(--line);
-}
+.admin-panel__head{ display:flex; align-items:center; justify-content:space-between; padding: 16px 18px; border-bottom:1px solid var(--line); }
 .admin-panel__head h2{ font-size:16px; }
 .admin-panel__projecttag{
   padding: 10px 18px; font-size:12px; font-weight:600;
@@ -373,20 +391,6 @@ body.map-fullscreen-active{ overflow: hidden; }
   border-bottom:1px solid var(--line-soft);
   font-family: var(--f-mono);
 }
-
-/* ---------- APARTADO TASA DEL DÓLAR (admin) ---------- */
-.rate-box{ margin:12px 18px; border:1px solid var(--line); border-radius:10px; background: var(--sky-50); padding:12px; }
-.rate-box__top{ display:flex; gap:10px; margin-bottom:10px; }
-.rate-box__top > div{ flex:1; background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:8px 10px; }
-.rate-box__label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#7C95AE; margin-bottom:3px; }
-.rate-box__live{ font-family: var(--f-mono); font-size:15px; font-weight:700; color: var(--blue-700); }
-.rate-box__eff span#rateEffective{ font-family: var(--f-mono); font-size:14px; font-weight:700; color: var(--available); }
-.rate-box__editlabel{ display:block; font-size:12px; font-weight:600; color:#4A6A8A; margin:2px 0 6px; }
-.rate-box__edit{ display:flex; gap:6px; align-items:stretch; }
-.rate-box__edit #rateInput{ flex:1 1 auto; min-width:0; font-size:14px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; font-family: var(--f-mono); }
-.rate-box__edit .btn{ flex:0 0 auto; }
-.rate-box__uselive{ margin-top:8px; }
-.rate-box__hint{ margin:8px 0 0; font-size:11.5px; color:#5B7894; }
 .admin-panel__search{ display:flex; gap:8px; padding: 12px 18px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap; }
 .admin-panel__search input, .admin-panel__search select{
   font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:7px; background:var(--sky-50);
@@ -402,26 +406,37 @@ body.map-fullscreen-active{ overflow: hidden; }
 .admin-table tbody td{ padding:7px 8px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
 .admin-table tbody tr:hover{ background: var(--sky-50); }
 .admin-table .area-cell{ font-family: var(--f-mono); color:#5B7894; }
-.status-select{
-  font-size:12px; padding:7px 6px; border-radius:6px; border:1px solid var(--line); background:#fff; min-height: 34px;
-}
+.status-select{ font-size:12px; padding:7px 6px; border-radius:6px; border:1px solid var(--line); background:#fff; min-height: 34px; }
 .pin-btn{ font-size:11.5px; padding:7px 8px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; color: var(--blue-700); min-height: 34px; }
 .pin-btn:hover{ background: var(--blue-100); }
 .pin-btn.has-pin{ background: var(--available-bg); border-color: var(--available); color: var(--available); }
-
 .price-btn{ font-size:11.5px; padding:7px 8px; border-radius:6px; border:1px dashed var(--line); background:#fff; cursor:pointer; color:#8499AE; min-height:34px; white-space:nowrap; font-family: var(--f-mono); }
 .price-btn:hover{ background: var(--blue-100); color: var(--blue-700); }
 .price-btn.has-price{ background:#fff; border-style:solid; border-color: var(--blue-500); color: var(--blue-700); font-weight:600; }
-
 .admin-panel__foot{ display:flex; gap:8px; justify-content:space-between; padding: 12px 18px; border-top:1px solid var(--line); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 
-/* ---------- MODALS ---------- */
-.modal-backdrop{
-  position:fixed; inset:0; background: rgba(11,37,64,.45);
-  display:flex; align-items:center; justify-content:center; z-index: 60; padding: 16px;
+/* ---------- recuadro de TASA del dólar (panel admin) ---------- */
+.admin-rate{ margin: 0 14px; padding: 12px; border:1px solid var(--line); border-radius:12px; background: var(--sky-50); }
+.admin-rate__head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.admin-rate__title{ font-size:12px; font-weight:700; color: var(--blue-700); text-transform:uppercase; letter-spacing:.04em; }
+.admin-rate__eff{ font-family: var(--f-mono); font-size:13.5px; font-weight:700; color: var(--available); }
+.admin-rate__edit{ display:flex; gap:6px; align-items:stretch; flex-wrap:wrap; }
+.admin-rate__prefix{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center; padding:0 10px;
+  border:1px solid var(--line); border-radius:8px; background: var(--blue-100); color: var(--blue-700);
+  font-family: var(--f-mono); font-weight:600; font-size:13.5px;
 }
+.admin-rate__edit #rateInput{
+  flex:1 1 110px; min-width:0; font-size:14px; padding:8px 10px;
+  border:1px solid var(--line); border-radius:8px; background:#fff; font-family: var(--f-mono);
+}
+.admin-rate__edit .btn{ flex:0 0 auto; }
+.admin-rate__hint{ margin:8px 0 0; font-size:11px; color:#5B7894; line-height:1.4; }
+
+/* ---------- MODALS ---------- */
+.modal-backdrop{ position:fixed; inset:0; background: rgba(11,37,64,.45); display:flex; align-items:center; justify-content:center; z-index: 60; padding: 16px; }
 .modal{
-  background:#fff; border-radius: 14px; padding: 26px 28px; width:100%; max-width: 380px;
+  background:#fff; border-radius: 16px; padding: 26px 28px; width:100%; max-width: 380px;
   box-shadow: var(--shadow-lg); position:relative;
   max-height: 90vh; max-height: 90dvh; overflow-y: auto;
 }
@@ -435,27 +450,21 @@ body.map-fullscreen-active{ overflow: hidden; }
 .modal__error{ color: var(--sold); font-size:12.5px; margin:8px 0 0; }
 .modal__actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:18px; flex-wrap:wrap; }
 .modal__actions--split{ justify-content:space-between; }
-.modal__close{
-  position:absolute; top:14px; right:14px; border:none; background:transparent; cursor:pointer;
-  font-size:15px; color:#9DB4CB; width:36px; height:36px; border-radius:6px;
-}
+.modal__close{ position:absolute; top:14px; right:14px; border:none; background:transparent; cursor:pointer; font-size:15px; color:#9DB4CB; width:36px; height:36px; border-radius:6px; }
 .modal__close:hover{ background: var(--sky-50); }
 .modal--lot{ max-width: 360px; }
 .modal__eyebrow{ font-family: var(--f-mono); font-size:11px; letter-spacing:.08em; color: var(--blue-500); }
 
 .lot-detail-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin: 14px 0 4px; }
-.lot-detail-grid div{ background: var(--sky-50); border-radius:8px; padding:8px 10px; }
+.lot-detail-grid div{ background: var(--sky-50); border-radius:10px; padding:9px 11px; border:1px solid var(--line-soft); }
 .lot-detail-grid dt{ font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:#7C95AE; margin-bottom:2px; }
 .lot-detail-grid dd{ margin:0; font-family: var(--f-mono); font-size:13px; font-weight:600; }
+#lotModalPriceRowDOP, #lotModalPriceRowUSD{ background: var(--available-bg); border-color: #CDEBDB; }
+#lotModalPriceRowDOP dd, #lotModalPriceRowUSD dd{ color: var(--available); }
 
 .field-label{ display:block; font-size:12px; font-weight:600; color:#4A6A8A; margin: 14px 0 5px; }
 #lotModalNote{ width:100%; }
 
-/* precio en la lista de reservas */
-.lot-row__price{ font-size:12.5px; font-weight:700; color: var(--blue-700); font-family: var(--f-mono); margin-top:2px; }
-.lot-row__date{ font-size:11.5px; color:#5B7894; font-family: var(--f-mono); margin-top:2px; }
-
-/* campo de precio (moneda + monto) en el modal admin */
 .price-field{ display:flex; gap:8px; align-items:stretch; }
 .price-field__currency{ flex:0 0 78px; width:78px !important; }
 .price-field__prefix{
@@ -465,9 +474,8 @@ body.map-fullscreen-active{ overflow: hidden; }
   font-family: var(--f-mono); font-weight:600; font-size:14px;
 }
 .price-field__amount{ flex:1 1 auto; }
-.lot-detail-grid dd#lotModalPrice{ color: var(--blue-700); }
 
-/* ---------- multiplicación ordenada: m² × precio/m² · y tarifa del dólar ---------- */
+/* multiplicación ordenada en el modal admin */
 .calc-row{ display:flex; align-items:stretch; gap:8px; flex-wrap:wrap; }
 .calc-row + .calc-row{ margin-top:2px; }
 .calc-row__area{
@@ -490,65 +498,19 @@ body.map-fullscreen-active{ overflow: hidden; }
   font-family: var(--f-mono); font-size:12.5px; color:#5B7894; white-space:nowrap;
 }
 
-/* ---------- caja del TOTAL (vista previa del cálculo) ---------- */
-.price-preview{
-  margin: 10px 0 0; padding:10px 12px;
-  background: var(--sky-50); border:1px dashed var(--line); border-radius:8px;
-}
+/* caja del TOTAL (vista previa) */
+.price-preview{ margin: 10px 0 0; padding:11px 13px; background: var(--available-bg); border:1px solid #CDEBDB; border-radius:10px; }
 .price-preview:empty{ display:none; }
-.total-box__label{ font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#7C95AE; margin-bottom:4px; }
+.total-box__label{ font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#5E8C75; margin-bottom:4px; }
 .total-box__amounts{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
 .total-box__dop{ font-family: var(--f-mono); font-size:18px; font-weight:700; color: var(--ink); }
-.total-box__usd{ font-family: var(--f-mono); font-size:14px; font-weight:700; color: var(--blue-600); }
-.total-box__rate{ margin-top:4px; font-family: var(--f-mono); font-size:11px; color:#7C95AE; }
-
-/* ---------- MÓDULO DE PAGOS / ABONOS (solo admin) ---------- */
-.pay-box{
-  margin-top:14px; border:1px solid var(--line); border-radius:10px;
-  background: var(--sky-50); padding:12px;
-}
-.pay-box__head{
-  font-size:12px; font-weight:700; color: var(--blue-700);
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;
-}
-.pay-box__tag{
-  font-family: var(--f-mono); font-size:10px; font-weight:600; text-transform:uppercase;
-  letter-spacing:.04em; color: var(--blue-600); background: var(--blue-100);
-  padding:2px 7px; border-radius:999px;
-}
-.pay-summary{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
-.pay-summary > div{ background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:7px 9px; }
-.pay-summary dt{ font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#7C95AE; margin-bottom:2px; }
-.pay-summary dd{ margin:0; font-family: var(--f-mono); font-size:13px; font-weight:700; color: var(--ink); }
-.pay-summary .is-falta dd{ color: var(--reserved); }
-.pay-summary .is-pagado{ grid-column:1 / -1; background: var(--available-bg); border-color: var(--available); }
-.pay-summary .is-pagado dd{ color: var(--available); }
-
-.pay-list{ list-style:none; margin:0 0 10px; padding:0; display:flex; flex-direction:column; gap:6px; }
-.pay-list li{
-  display:flex; align-items:center; gap:8px;
-  background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:6px 9px;
-  font-family: var(--f-mono); font-size:12px;
-}
-.pay-list .pay-amt{ font-weight:700; color: var(--blue-700); }
-.pay-list .pay-date{ color:#7C95AE; }
-.pay-list .pay-del{
-  margin-left:auto; border:none; background:transparent; cursor:pointer;
-  color: var(--sold); font-size:14px; width:26px; height:26px; border-radius:6px;
-}
-.pay-list .pay-del:hover{ background: var(--sold-bg); }
-.pay-list__empty{ font-size:11.5px; color:#7C95AE; padding:2px 0 8px; }
-
-.pay-add{ display:flex; gap:6px; align-items:stretch; flex-wrap:wrap; }
-.pay-add #payAmountInput{ flex:1 1 120px; min-width:0; font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; font-family: var(--f-body); }
-.pay-add #payDateInput{ flex:1 1 130px; min-width:0; font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
-.pay-add .btn{ flex:0 0 auto; }
-#btnPayFull{ margin-top:8px; }
+.total-box__usd{ font-family: var(--f-mono); font-size:14px; font-weight:700; color: var(--available); }
+.total-box__rate{ margin-top:4px; font-family: var(--f-mono); font-size:11px; color:#5E8C75; }
 
 /* ---------- TOAST ---------- */
 .toast{
   position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
-  background: var(--ink); color:#fff; padding:10px 18px; border-radius:999px;
+  background: var(--ink); color:#fff; padding:11px 20px; border-radius:999px;
   font-size:13px; box-shadow: var(--shadow-md); z-index: 100; max-width: 92vw; text-align:center;
   animation: toastIn .2s ease;
 }
@@ -566,38 +528,27 @@ body.map-fullscreen-active{ overflow: hidden; }
    RESPONSIVE — MÓVIL
    ================================================================= */
 @media (max-width: 720px){
-  /* Header: marca arriba, stats en fila propia, botón admin a ancho completo */
-  .titleblock{
-    padding: 12px 14px;
-    gap: 10px;
-  }
+  .titleblock{ padding: 12px 14px; gap: 10px; }
   .titleblock__brand{ width:100%; }
+  .titleblock__company{ width:100%; margin-left:0; justify-content:center; order:1; }
+  .titleblock__company-name{ font-size:14px; }
   .titleblock__text h1{ font-size: 16px; line-height:1.25; }
   .titleblock__text p{ font-size: 10.5px; }
-  .titleblock__stats{
-    margin-left:0; width:100%;
-    justify-content: space-between; gap:6px;
-    order: 3;
-  }
-  .stat{ min-width: 0; flex:1; }
+  .titleblock__stats{ margin-left:0; width:100%; justify-content: space-between; gap:6px; order: 3; }
+  .stat{ min-width: 0; flex:1; padding:6px 4px; }
   .stat__value{ font-size: 17px; }
   .stat__label{ font-size: 9px; }
   .titleblock__actions{ width:100%; order:2; }
   #btnAdminToggle{ width:100%; justify-content:center; }
 
-  /* Pestañas: a ancho completo, repartidas */
   .project-tabs{ padding: 0 10px; }
   .project-tab{ flex:1; align-items:center; padding: 9px 12px 10px; }
   .project-tab__name{ font-size: 13px; }
 
-  /* Toolbar: todo se apila, controles a ancho completo y táctiles */
   .toolbar{ padding: 10px 14px; gap: 10px; }
   .toolbar__search{ flex: 1 1 100%; max-width: none; order: 1; }
   .btn--mark{ order: 2; flex: 1 1 100%; justify-content:center; }
   .toolbar__legend{ order: 4; width:100%; justify-content: space-between; gap:8px; }
-  .toolbar__calc{ order: 5; width:100%; justify-content: space-between; }
-  .toolbar__calc .calc-input{ flex:1 1 80px; width:auto; }
-  .toolbar__calc .calc-result{ width:100%; text-align:right; }
   .toolbar__zoom{ order: 3; margin-left:0; width:100%; justify-content: space-between; }
   .toolbar__zoom .zoom-readout{ flex:1; }
 
@@ -610,7 +561,6 @@ body.map-fullscreen-active{ overflow: hidden; }
   .map-panel__expand{ top:8px; right:8px; }
   .map-panel__hint{ font-size: 10.5px; }
 
-  /* Sidebar plegable en móvil para liberar espacio para el plano */
   .sidebar{ padding: 12px; max-height: none; }
   .sidebar__collapse-toggle{ cursor:pointer; }
   .sidebar__chevron{ display:block; }
@@ -618,7 +568,6 @@ body.map-fullscreen-active{ overflow: hidden; }
   .sidebar.is-collapsed .sidebar__body{ display:none; }
   .lot-list{ max-height: 50vh; }
 
-  /* Modales como hoja inferior, más fáciles de usar con el pulgar */
   .modal-backdrop{ align-items:flex-end; padding: 0; }
   .modal{
     max-width: none; width:100%; border-radius: 18px 18px 0 0;
