@@ -190,8 +190,8 @@ body.is-admin .admin-only{ display: inline-flex; }
 .legend-item{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:#4A6A8A; }
 .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0; }
 .dot--available{ background: var(--available); }
-.dot--reserved{ background: #F2B30A; }
-.dot--sold{ background: #F2B30A; }
+.dot--reserved{ background: #DFFF00; }
+.dot--sold{ background: var(--sold); }
 
 .toolbar__zoom{ display:flex; align-items:center; gap:8px; margin-left:auto; }
 .zoom-readout{ font-family: var(--f-mono); font-size:12.5px; color:#4A6A8A; min-width:42px; text-align:center; }
@@ -275,8 +275,8 @@ body.map-fullscreen-active{ overflow: hidden; }
   box-shadow: 0 2px 6px rgba(0,0,0,.35);
   pointer-events:auto; touch-action:none;
 }
-.marker--reservado{ background: #F2B30A; color:#4a3800; }
-.marker--vendido{ background: #F2B30A; color:#4a3800; }
+.marker--reservado{ background: #DFFF00; color:#3a4a00; }
+.marker--vendido{ background: var(--sold); color:#fff; }
 .marker:hover{ filter: brightness(1.08); }
 
 /* ---------- SIDEBAR ---------- */
@@ -323,7 +323,7 @@ body.map-fullscreen-active{ overflow: hidden; }
 }
 .lot-row.is-disponible{ border-left-color: var(--available); }
 .lot-row.is-reservado{ border-left-color: var(--gold); }
-.lot-row.is-vendido{ border-left-color: var(--gold); }
+.lot-row.is-vendido{ border-left-color: var(--sold); }
 /* franja vertical de color según estado: ver border-left en .lot-row */
 .lot-row:hover{
   border-top-color: var(--blue-500);
@@ -344,7 +344,7 @@ body.map-fullscreen-active{ overflow: hidden; }
 }
 .lot-row__badge.is-disponible{ background: var(--available-bg); color: var(--available); }
 .lot-row__badge.is-reservado{ background: var(--gold-soft); color: #B07D08; }
-.lot-row__badge.is-vendido{ background: var(--gold-soft); color: #B07D08; }
+.lot-row__badge.is-vendido{ background: var(--sold-bg); color: var(--sold); }
 
 .lot-row__info{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
 .lot-row__title{ font-size:13.5px; font-weight:700; color: var(--ink); }
@@ -358,7 +358,7 @@ body.map-fullscreen-active{ overflow: hidden; }
 }
 .lot-row__status.is-disponible{ color: var(--available); background: var(--available-bg); }
 .lot-row__status.is-reservado{ color: #9A6B05; background: var(--gold-soft); }
-.lot-row__status.is-vendido{ color: #9A6B05; background: var(--gold-soft); }
+.lot-row__status.is-vendido{ color: var(--sold); background: var(--sold-bg); }
 
 .empty-state{ font-size:13px; color:#7C95AE; text-align:center; padding: 20px 6px; }
 
@@ -464,6 +464,10 @@ body.map-fullscreen-active{ overflow: hidden; }
 
 .field-label{ display:block; font-size:12px; font-weight:600; color:#4A6A8A; margin: 14px 0 5px; }
 #lotModalNote{ width:100%; }
+#lotModalAreaInput{
+  width:100%; font-size:14px; padding:10px 12px; border:1px solid var(--line);
+  border-radius:8px; background: var(--sky-50); font-family: var(--f-mono);
+}
 
 .price-field{ display:flex; gap:8px; align-items:stretch; }
 .price-field__currency{ flex:0 0 78px; width:78px !important; }

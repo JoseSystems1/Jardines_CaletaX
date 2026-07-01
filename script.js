@@ -12,12 +12,6 @@
     STORAGE_KEY_PREFIX: "jcx_lots_state_v2_",
     SESSION_KEY: "jcx_admin_session_v1",
     NOTE_MAX: 500,
-    // ===== Tasa del dólar del BANCO POPULAR (vía TasaReal.com) =====
-    // 1) Crea una cuenta gratis en https://tasareal.com/precios y copia tu API key.
-    // 2) Pégala aquí entre comillas. Si la dejas vacía, se usa la tasa de mercado de respaldo.
-    TASAREAL_KEY: "tcrd_AZ8MuI1ncaz0oUFKNPxaolQATO2JJEucGCn0pxRaZsyT4aWT", // API key de TasaReal
-    TASAREAL_INSTITUTION: "popular",  // institución: Banco Popular
-    TASAREAL_SIDE: "sell",            // "sell" = tasa de venta del banco (RD$ por US$1)
   };
 
   const SUPABASE_URL = "https://tecoypzwhxqczrvfwmbf.supabase.co";
@@ -31,32 +25,29 @@
      1. DATOS BASE DE CADA PROYECTO
   ----------------------------------------------------------------- */
   const LOTS_BASE_X = [
-    [1,425.01],[2,427.00],[3,426.00],[4,429.00],[5,430.00],[6,431.00],[7,431.00],
-    [8,435.00],[9,435.00],[10,431.00],[11,360.00],[12,228.29],[13,249.00],
-    [14,240.00],[15,240.00],[16,240.00],[17,240.00],[18,240.00],[19,240.00],
-    [20,240.00],[21,240.00],[22,240.00],[23,240.00],[24,240.00],[25,240.00],
-    [26,240.00],[27,240.00],[28,240.00],[29,240.00],[30,240.00],[31,240.00],
-    [32,240.00],[33,240.00],[34,240.00],[35,240.00],[36,240.00],[37,240.00],
-    [38,314.19],[39,351.74],[40,285.00],[41,300.00],[42,346.62],[43,240.00],
-    [44,240.00],[45,240.00],[46,240.00],[47,240.00],[48,240.00],[49,240.00],
-    [50,240.00],[51,240.00],[52,240.00],[53,229.93],[54,230.00],[55,230.00],
-    [56,230.00],[57,230.00],[58,230.00],[59,230.00],[60,230.00],[61,230.00],
-    [62,386.03],[63,367.04],[64,280.79],[65,300.97],[66,409.67],[67,230.00],
-    [68,230.00],[69,230.00],[70,230.00],[71,230.00],[72,230.00],[73,230.00],
-    [74,230.00],[75,220.00],[76,220.00],[77,220.00],[78,220.00],[79,220.00],
-    [80,220.00],[81,220.00],[82,220.00],[83,275.69],[84,382.42],[85,404.90],
-    [86,223.73],[87,220.00],[88,220.00],[89,220.00],[90,220.00],[91,220.00],
-    [92,220.00],[93,220.00],[94,220.02],[95,220.00],[96,220.00],[97,220.00],
-    [98,220.00],[99,220.00],[100,220.00],[101,301.36],[102,382.08],[103,220.00],
-    [104,220.00],[105,220.00],[106,220.00],[107,219.99],[108,220.00],[109,174.19],
-    [110,603.59],[111,639.47],[112,265.20],[113,270.00],[114,270.00],[115,270.00],
-    [116,270.00],[117,270.00],[118,270.00],[119,267.95],[120,439.02],[121,385.78],
-    [122,388.97],[123,392.16],[124,395.36],[125,419.12],[126,293.53],[127,250.00],
-    [128,250.00],[129,250.00],[130,250.00],[131,250.00],[132,376.21],[133,346.66],
-    [134,244.95],[135,249.71],[136,254.48],[137,259.24],[138,305.43],[139,443.62],
-    [140,382.71],[141,382.72],[142,382.73],[143,504.54],[144,470.56],[145,353.48],
-    [146,356.50],[147,359.47],[148,362.45],[149,365.40],[150,487.15],[151,361.24],
-    [152,362.90],[153,364.36],[154,365.88],[155,445.75],[156,163.62],
+    [1,425],[2,427],[3,426],[4,429],[5,430],[6,431],[7,431],
+    [8,435],[9,435],[10,431],[11,360],[12,228],[13,249],[14,240],
+    [15,240],[16,240],[17,240],[18,240],[19,240],[20,240],[21,240],
+    [22,240],[23,240],[24,240],[25,240],[26,240],[27,240],[28,240],
+    [29,240],[30,240],[31,240],[32,240],[33,240],[34,240],[35,240],
+    [36,240],[37,240],[38,314],[39,352],[40,285],[41,300],[42,347],
+    [43,240],[44,240],[45,240],[46,240],[47,240],[48,240],[49,240],
+    [50,240],[51,240],[52,240],[53,230],[54,230],[55,230],[56,230],
+    [57,230],[58,230],[59,230],[60,230],[61,230],[62,386],[63,367],
+    [64,281],[65,301],[66,410],[67,230],[68,230],[69,230],[70,230],
+    [71,230],[72,230],[73,230],[74,230],[75,220],[76,220],[77,220],
+    [78,220],[79,220],[80,220],[81,220],[82,220],[83,276],[84,382],
+    [85,405],[86,224],[87,220],[88,220],[89,220],[90,220],[91,220],
+    [92,220],[93,220],[94,220],[95,220],[96,220],[97,220],[98,220],
+    [99,220],[100,220],[101,301],[102,382],[103,220],[104,220],[105,220],
+    [106,220],[107,220],[108,220],[109,174],[110,604],[111,639],[112,265],
+    [113,270],[114,270],[115,270],[116,270],[117,270],[118,270],[119,268],
+    [120,439],[121,386],[122,389],[123,392],[124,395],[125,419],[126,294],
+    [127,250],[128,250],[129,250],[130,250],[131,250],[132,376],[133,347],
+    [134,245],[135,250],[136,254],[137,259],[138,305],[139,444],[140,383],
+    [141,383],[142,383],[143,505],[144,471],[145,353],[146,356],[147,359],
+    [148,362],[149,365],[150,487],[151,361],[152,363],[153,364],[154,366],
+    [155,446],[156,163.62],
   ];
 
   const LOTS_BASE_IX = [
@@ -232,54 +223,8 @@
     try { updatePricePreview(); } catch (e) {}
   }
 
-  // Trae la tasa del Banco Popular (TasaReal). Devuelve un número o null.
-  async function fetchBancoPopularRate() {
-    if (!CONFIG.TASAREAL_KEY) return null; // sin API key no se puede consultar
-    try {
-      const url = "https://tasareal.com/api/v1/rates?currency=USD&institution=" +
-                  encodeURIComponent(CONFIG.TASAREAL_INSTITUTION);
-      const res = await fetch(url, { headers: { "Authorization": "Bearer " + CONFIG.TASAREAL_KEY } });
-      if (!res.ok) {
-        if (res.status === 401) console.warn("⚠️ TasaReal: API key inválida.");
-        else if (res.status === 429) console.warn("⚠️ TasaReal: límite diario alcanzado.");
-        else console.warn("⚠️ TasaReal respondió", res.status);
-        return null;
-      }
-      const data = await res.json();
-      const row = data && Array.isArray(data.rates)
-        ? data.rates.find((r) => r.institution === CONFIG.TASAREAL_INSTITUTION) || data.rates[0]
-        : null;
-      if (!row) return null;
-      const val = Number(CONFIG.TASAREAL_SIDE === "buy" ? row.buy : row.sell);
-      return (!isNaN(val) && val > 0) ? val : null;
-    } catch (err) {
-      console.warn("⚠️ No se pudo consultar TasaReal (¿bloqueo CORS?):", err);
-      return null;
-    }
-  }
-
-  // Tasa de mercado de respaldo (si no hay API key del Banco Popular o falla)
-  async function fetchMarketRate() {
-    try {
-      const res = await fetch("https://open.er-api.com/v6/latest/USD");
-      const data = await res.json();
-      if (data && data.rates && data.rates.DOP) return Number(data.rates.DOP);
-    } catch (err) { console.warn("⚠️ No se pudo obtener la tasa de mercado:", err); }
-    return null;
-  }
-
-  // Consulta la tasa "en vivo": primero Banco Popular, si no, mercado.
-  // Se llama al arrancar y cada 30 min (48 veces/día) — ver initializeApp().
-  async function fetchUsdDopRate() {
-    let rate = await fetchBancoPopularRate();   // 1º Banco Popular (TasaReal)
-    let fuente = "Banco Popular";
-    if (rate == null) { rate = await fetchMarketRate(); fuente = "mercado"; } // 2º respaldo
-    if (rate != null && rate > 0) {
-      liveRate = rate; rateLoaded = true;
-      console.log("💱 Tasa USD→DOP (" + fuente + "):", rate);
-    } else { rateLoaded = true; }
-    recomputeRate();
-  }
+  // La tasa del dólar es MANUAL: la fija el admin y se guarda para todos.
+  // Si no hay tasa fija guardada, se usa FALLBACK_RATE como respaldo.
 
   async function loadManualRate() {
     try {
@@ -329,25 +274,16 @@
   function updateRateDisplay() {
     const eff = $("#rateEffective");
     if (eff) eff.textContent = "RD$ " + Number(usdDopRate).toFixed(2) + " por US$1";
-    const src = $("#rateSource");
-    if (src) {
-      src.textContent = (manualRate && manualRate > 0) ? "fija (admin)"
-        : (liveRate && liveRate > 0 ? "Banco Popular / mercado" : "respaldo");
-    }
     const hint = $("#rateHint");
     if (hint) {
       hint.textContent = (manualRate && manualRate > 0)
-        ? "Tasa FIJA del admin. Se aplica a los solares DISPONIBLES. Los reservados/vendidos conservan la que tenían."
-        : "Tasa AUTOMÁTICA. Se aplica a los disponibles; los reservados/vendidos conservan su tasa congelada.";
+        ? "Tasa fija del admin. Se aplica a los solares DISPONIBLES. Los reservados/vendidos conservan la que tenían."
+        : "Escribe la tasa del dólar y pulsa Fijar. Se aplica a los disponibles; los reservados/vendidos conservan la suya.";
     }
     const inp = $("#rateInput");
-    if (inp && document.activeElement !== inp) {
-      inp.value = (manualRate && manualRate > 0) ? manualRate : (liveRate ? Number(liveRate.toFixed(2)) : "");
+    if (inp && document.activeElement !== inp && manualRate && manualRate > 0) {
+      inp.value = manualRate;
     }
-    const useAuto = $("#btnUseLiveRate");
-    if (useAuto) useAuto.hidden = !(manualRate && manualRate > 0);
-    const live = $("#rateLive");
-    if (live) live.textContent = liveRate ? ("RD$ " + liveRate.toFixed(2)) : (rateLoaded ? "no disponible" : "cargando…");
   }
 
   function computeTotals(lot) {
@@ -589,7 +525,7 @@
     Object.assign(lot, patch, { updatedAt });
     renderAll();
     if (sb) {
-      const row = { status: lot.status, x: lot.x, y: lot.y, note: lot.note,
+      const row = { status: lot.status, area: lot.area, x: lot.x, y: lot.y, note: lot.note,
         price: lot.price, currency: lot.currency, reserved_date: lot.reservedDate,
         rate: lot.rate, updated_at: updatedAt };
       sb.from("lots").update(row).eq("project", activeProject).eq("id", Number(id))
@@ -806,16 +742,25 @@
     return usdDopRate;
   }
 
+  function modalArea() {
+    const inp = $("#lotModalAreaInput");
+    if (inp) { const raw = inp.value.trim(); if (raw !== "") { const n = Number(raw.replace(/,/g, "")); if (!isNaN(n) && n > 0) return n; } }
+    const lot = activeLotId ? currentState()[activeLotId] : null;
+    return lot ? Number(lot.area) : 0;
+  }
+
   function updatePricePreview() {
     const preview = $("#lotModalPricePreview");
     if (!preview) return;
     const lot = activeLotId ? currentState()[activeLotId] : null;
     if (!lot || $("#lotModalAdminControls").hidden) { preview.innerHTML = ""; return; }
+    const area = modalArea();
+    const caEl = $("#lotModalCalcArea"); if (caEl) caEl.textContent = fmtArea(area);
     const raw = $("#lotModalPriceInput").value.trim();
     const price = raw === "" ? null : Number(raw.replace(/,/g, ""));
     if (price == null || isNaN(price)) { preview.innerHTML = ""; return; }
     const rate = modalRate();
-    const dop = Number(lot.area) * price;
+    const dop = area * price;
     const usd = rate > 0 ? dop / rate : null;
     preview.innerHTML =
       `<div class="total-box__label">Total del solar</div>` +
@@ -851,6 +796,7 @@
     adminBox.hidden = !isAdmin;
     if (isAdmin) {
       $("#lotModalStatusSelect").value = lot.status;
+      $("#lotModalAreaInput").value = lot.area != null ? lot.area : "";
       $("#lotModalNote").value = lot.note || "";
       $("#lotModalCalcArea").textContent = fmtArea(lot.area);
       $("#lotModalPriceInput").value = lot.price != null ? lot.price : "";
@@ -875,6 +821,7 @@
   $("#btnCloseLotModal").addEventListener("click", closeModals);
   $("#lotBackdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeModals(); });
   $("#lotModalPriceInput").addEventListener("input", updatePricePreview);
+  $("#lotModalAreaInput").addEventListener("input", updatePricePreview);
   $("#lotModalRateInput").addEventListener("input", updatePricePreview);
   $("#lotModalRateInput").addEventListener("change", () => {
     const raw = $("#lotModalRateInput").value.trim();
@@ -886,13 +833,17 @@
   function collectLotModalPatch() {
     let status = $("#lotModalStatusSelect").value;
     if (!ALLOWED_STATUS[status]) status = "disponible";
+    const rawArea = $("#lotModalAreaInput").value.trim();
+    let area = rawArea === "" ? null : clampNumber(rawArea.replace(/,/g, ""), 0.01, 1e6);
     const rawPrice = $("#lotModalPriceInput").value.trim();
     let price = rawPrice === "" ? null : clampNumber(rawPrice.replace(/,/g, ""), 0, 1e12);
     let note = String($("#lotModalNote").value || "").slice(0, CONFIG.NOTE_MAX);
     let reservedDate = $("#lotModalDateInput").value || null;
     if (reservedDate && !/^\d{4}-\d{2}-\d{2}$/.test(reservedDate)) reservedDate = null;
     if (status !== "disponible" && !reservedDate) reservedDate = todayISODate();
-    return { status, note, price, currency: "DOP", reservedDate };
+    const patch = { status, note, price, currency: "DOP", reservedDate };
+    if (area != null) patch.area = area; // metros editados por el admin
+    return patch;
   }
 
   $("#btnSaveLot").addEventListener("click", () => {
@@ -960,11 +911,6 @@
   if (btnSaveRate) btnSaveRate.addEventListener("click", saveRateFromInput);
   const rateInputEl = $("#rateInput");
   if (rateInputEl) rateInputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") saveRateFromInput(); });
-  const btnUseLive = $("#btnUseLiveRate");
-  if (btnUseLive) btnUseLive.addEventListener("click", () => {
-    saveManualRate(NaN); // quita la tasa fija -> vuelve a la automática (Banco Popular / mercado)
-    toast("Tasa automática activada (Banco Popular / mercado)");
-  });
 
   $("#btnExportData").addEventListener("click", () => {
     const payload = { project: activeProject, projectName: P().title.replace(/\u00A0/g, " "), lots: currentState() };
@@ -1040,8 +986,7 @@
   async function initializeApp() {
     await loadManualRate();
     subscribeRateRealtime();
-    fetchUsdDopRate();
-    setInterval(fetchUsdDopRate, 30 * 60 * 1000);
+    recomputeRate();
     if (sb) { await loadStateFromSupabase(); subscribeRealtime(); }
     viewportEl("x").style.aspectRatio  = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
     viewportEl("ix").style.aspectRatio = PROJECTS.ix.imgW + " / " + PROJECTS.ix.imgH;
