@@ -385,6 +385,25 @@
   /* ---------------------------------------------------------------
      6. MARCADORES
   ----------------------------------------------------------------- */
+  // ¿Hay ya un marcador de OTRO solar muy cerca de este punto? (evita solaparlos)
+  // Devuelve el solar en conflicto o null. Umbral ~1.1% del ancho del plano.
+  function nearbyMarkedLot(pk, xPct, yPct, excludeId) {
+    const info = VW[pk];
+    if (!info) return null;
+    const W = info.W, H = info.H;
+    const px = (xPct / 100) * W, py = (yPct / 100) * H;
+    const minDist = 0.025 * W; // distancia mínima permitida entre marcadores (~2.5% del ancho)
+    let hit = null, hitD = Infinity;
+    Object.values(states[pk]).forEach((l) => {
+      if (String(l.id) === String(excludeId)) return;
+      if (l.x == null || l.y == null) return;
+      const lx = (l.x / 100) * W, ly = (l.y / 100) * H;
+      const d = Math.hypot(px - lx, py - ly);
+      if (d < minDist && d < hitD) { hit = l; hitD = d; }
+    });
+    return hit;
+  }
+
   function repaintMarkers(pk) {
     pk = pk || activeProject;
     const v = OSD[pk];
@@ -398,7 +417,9 @@
         if (lot.x == null || lot.y == null) return;
         const el = document.createElement("div");
         el.className = "marker marker--" + lot.status;
-        el.textContent = lot.status === "vendido" ? "✕" : "●";
+        el.textContent = String(lot.id); // el marcador muestra el NÚMERO del solar
+        const digits = String(lot.id).length;
+        el.classList.add(digits >= 3 ? "marker--d3" : (digits === 2 ? "marker--d2" : "marker--d1"));
         let tip = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status];
         if (lot.reservedDate) tip += " · " + fmtDateOnly(lot.reservedDate);
         if (isAdmin) { const pTxt = fmtPriceBoth(lot); if (pTxt) tip += " · " + pTxt; }
@@ -616,6 +637,14 @@
       let yPct = (imagePoint.y / VW[pk].H) * 100;
       xPct = Math.max(0, Math.min(100, xPct));
       yPct = Math.max(0, Math.min(100, yPct));
+
+      // Evitar poner el marcador ENCIMA del de otro solar ya marcado
+      const conflict = nearbyMarkedLot(pk, xPct, yPct, placementLotId);
+      if (conflict) {
+        toast("Ahí ya está el marcador del Solar #" + conflict.id + ". Coloca el del Solar #" + placementLotId + " en su propio terreno.");
+        return; // no coloca; sigue en modo ubicación para intentar de nuevo
+      }
+
       const lot = states[pk][placementLotId];
       const patch = { x: xPct, y: yPct };
       if (lot && lot.status === "disponible") { patch.status = "reservado"; if (!lot.reservedDate) patch.reservedDate = todayISODate(); }

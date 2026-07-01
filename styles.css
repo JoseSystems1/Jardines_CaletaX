@@ -278,6 +278,9 @@ body.map-fullscreen-active{ overflow: hidden; }
 .marker--reservado{ background: #DFFF00; color:#3a4a00; }
 .marker--vendido{ background: var(--sold); color:#fff; }
 .marker:hover{ filter: brightness(1.08); }
+.marker--d1{ font-size:13px; }
+.marker--d2{ font-size:11px; letter-spacing:-.3px; }
+.marker--d3{ font-size:9px; letter-spacing:-.4px; }
 
 /* ---------- SIDEBAR ---------- */
 .sidebar{
