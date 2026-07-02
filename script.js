@@ -8,10 +8,13 @@
   ----------------------------------------------------------------- */
   const CONFIG = {
     ADMIN_USER: "adonel",
-    ADMIN_PASSWORD: "jardinesx2026",
+    ADMIN_PASSWORD: "jardines10y9",
     STORAGE_KEY_PREFIX: "jcx_lots_state_v2_",
     SESSION_KEY: "jcx_admin_session_v1",
     NOTE_MAX: 500,
+    // El admin entra con USUARIO + contraseña. Por dentro el usuario se convierte
+    // en un correo (usuario@ADMIN_EMAIL_DOMAIN) para la autenticación de Supabase.
+    ADMIN_EMAIL_DOMAIN: "jardines-caleta.com",
   };
 
   const SUPABASE_URL = "https://tecoypzwhxqczrvfwmbf.supabase.co";
@@ -888,11 +891,12 @@
 
   $("#loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const email = ($("#loginUser").value || "").trim();
+    const userRaw = ($("#loginUser").value || "").trim();
     const pass = $("#loginPassword").value || "";
     $("#loginError").hidden = true;
     if (sb) {
-      // Autenticación REAL con Supabase (usuario creado en el panel de Supabase)
+      // El usuario escribe solo su USUARIO; por dentro se arma el correo para Supabase.
+      const email = userRaw.includes("@") ? userRaw : (userRaw.toLowerCase() + "@" + CONFIG.ADMIN_EMAIL_DOMAIN);
       try {
         const { error } = await sb.auth.signInWithPassword({ email, password: pass });
         if (error) { $("#loginError").hidden = false; return; }
@@ -904,7 +908,7 @@
       return;
     }
     // Respaldo local (solo si no hay Supabase, p. ej. pruebas sin conexión)
-    const ok = (email.toLowerCase() === CONFIG.ADMIN_USER.toLowerCase() && pass === CONFIG.ADMIN_PASSWORD);
+    const ok = (userRaw.toLowerCase() === CONFIG.ADMIN_USER.toLowerCase() && pass === CONFIG.ADMIN_PASSWORD);
     if (ok) {
       setAdmin(true); closeModals();
       toast("Sesión de administrador iniciada");

@@ -218,11 +218,11 @@
 <div class="modal-backdrop" id="loginBackdrop" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <h2 id="loginTitle">Acceso de administrador</h2>
-    <p class="modal__hint">Introduce tu correo y contraseña de administrador para marcar y editar solares.</p>
+    <p class="modal__hint">Introduce tu usuario y contraseña de administrador para marcar y editar solares.</p>
     <form id="loginForm">
-      <input type="email" id="loginUser" placeholder="Correo electrónico" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <input type="text" id="loginUser" placeholder="Usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required>
       <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required>
-      <p class="modal__error" id="loginError" hidden>Correo o contraseña incorrectos. Intenta de nuevo.</p>
+      <p class="modal__error" id="loginError" hidden>Usuario o contraseña incorrectos. Intenta de nuevo.</p>
       <div class="modal__actions">
         <button type="button" class="btn btn--ghost" id="btnCancelLogin">Cancelar</button>
         <button type="submit" class="btn btn--primary">Entrar</button>
@@ -294,6 +294,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=35"></script>
+<script src="script.js?v=37"></script>
 </body>
 </html>
