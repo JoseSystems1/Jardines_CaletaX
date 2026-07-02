@@ -187,8 +187,8 @@ body.is-admin .admin-only{ display: inline-flex; }
 }
 .btn--searchgo:hover{ background: var(--blue-700); }
 .toolbar__legend{ display:flex; gap:16px; flex-wrap:wrap; }
-.legend-item{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:#4A6A8A; }
-.dot{ width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.legend-item{ display:flex; align-items:center; gap:7px; font-size:13px; color:#4A6A8A; }
+.dot{ width:13px; height:13px; border-radius:50%; display:inline-block; flex-shrink:0; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
 .dot--available{ background: var(--available); }
 .dot--reserved{ background: #DFFF00; }
 .dot--sold{ background: var(--sold); }
@@ -514,8 +514,17 @@ body.map-fullscreen-active{ overflow: hidden; }
 .total-box__usd{ font-family: var(--f-mono); font-size:14px; font-weight:700; color: var(--available); }
 .total-box__rate{ margin-top:4px; font-family: var(--f-mono); font-size:11px; color:#5E8C75; }
 
-/* ---------- TOAST ---------- */
-.toast{
+/* ---------- PIE DE PÁGINA ---------- */
+.site-footer{
+  padding: 10px 24px 22px;
+  text-align: right;
+  font-size: 11.5px;
+  color: #90A6BC;
+  font-family: var(--f-mono);
+  letter-spacing:.2px;
+}
+
+/* ---------- TOAST ---------- */.toast{
   position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
   background: var(--ink); color:#fff; padding:11px 20px; border-radius:999px;
   font-size:13px; box-shadow: var(--shadow-md); z-index: 100; max-width: 92vw; text-align:center;

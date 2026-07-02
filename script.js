@@ -342,7 +342,12 @@
   ----------------------------------------------------------------- */
   let isAdmin = false;
   async function checkAdminSession() {
-    try { isAdmin = sessionStorage.getItem(CONFIG.SESSION_KEY) === "1"; } catch (e) { isAdmin = false; }
+    if (sb) {
+      try { const { data } = await sb.auth.getSession(); isAdmin = !!(data && data.session); }
+      catch (e) { isAdmin = false; }
+    } else {
+      try { isAdmin = sessionStorage.getItem(CONFIG.SESSION_KEY) === "1"; } catch (e) { isAdmin = false; }
+    }
   }
   function setAdmin(value) {
     isAdmin = value;
@@ -881,11 +886,25 @@
     else { $("#loginBackdrop").hidden = false; setTimeout(() => $("#loginPassword").focus(), 50); }
   });
 
-  $("#loginForm").addEventListener("submit", (e) => {
+  $("#loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const user = ($("#loginUser").value || "").trim().toLowerCase();
+    const email = ($("#loginUser").value || "").trim();
     const pass = $("#loginPassword").value || "";
-    const ok = (user === CONFIG.ADMIN_USER.toLowerCase() && pass === CONFIG.ADMIN_PASSWORD);
+    $("#loginError").hidden = true;
+    if (sb) {
+      // Autenticación REAL con Supabase (usuario creado en el panel de Supabase)
+      try {
+        const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+        if (error) { $("#loginError").hidden = false; return; }
+        setAdmin(true); closeModals();
+        toast("Sesión de administrador iniciada");
+        $("#adminPanel").hidden = false; $("#adminOverlay").hidden = false;
+        renderAdminTable(); updateRateDisplay();
+      } catch (err) { $("#loginError").hidden = false; }
+      return;
+    }
+    // Respaldo local (solo si no hay Supabase, p. ej. pruebas sin conexión)
+    const ok = (email.toLowerCase() === CONFIG.ADMIN_USER.toLowerCase() && pass === CONFIG.ADMIN_PASSWORD);
     if (ok) {
       setAdmin(true); closeModals();
       toast("Sesión de administrador iniciada");
@@ -897,7 +916,10 @@
 
   $("#btnCloseAdmin").addEventListener("click", () => { $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; });
   $("#adminOverlay").addEventListener("click", () => { $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; });
-  $("#btnLogoutAdmin").addEventListener("click", () => { setAdmin(false); toast("Sesión cerrada"); });
+  $("#btnLogoutAdmin").addEventListener("click", async () => {
+    if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
+    setAdmin(false); toast("Sesión cerrada");
+  });
 
   $("#adminSearch").addEventListener("input", renderAdminTable);
   $("#adminStatusFilter").addEventListener("change", renderAdminTable);
