@@ -406,9 +406,13 @@
         if (lot.x == null || lot.y == null) return;
         const el = document.createElement("div");
         el.className = "marker marker--" + lot.status;
-        el.textContent = String(lot.id); // el marcador muestra el NÚMERO del solar
         const digits = String(lot.id).length;
-        el.classList.add(digits >= 3 ? "marker--d3" : (digits === 2 ? "marker--d2" : "marker--d1"));
+        const fontSize = digits >= 3 ? 15 : (digits === 2 ? 19 : 23);
+        el.innerHTML =
+          '<svg viewBox="0 0 44 44" preserveAspectRatio="xMidYMid meet">' +
+          '<circle class="marker__bg" cx="22" cy="22" r="19"></circle>' +
+          '<text class="marker__txt" x="22" y="22" text-anchor="middle" dominant-baseline="central" font-size="' + fontSize + '">' +
+          lot.id + '</text></svg>';
         let tip = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status];
         if (lot.reservedDate) tip += " · " + fmtDateOnly(lot.reservedDate);
         if (isAdmin) { const pTxt = fmtPriceBoth(lot); if (pTxt) tip += " · " + pTxt; }
@@ -417,8 +421,14 @@
         const openThis = (ev) => { if (ev) { ev.stopPropagation && ev.stopPropagation(); ev.preventDefault && ev.preventDefault(); } openLotModal(lotId); };
         el.addEventListener("click", openThis);
         el.addEventListener("touchend", openThis, { passive: false });
-        const point = v.viewport.imageToViewportCoordinates(new OpenSeadragon.Point((lot.x / 100) * info.W, (lot.y / 100) * info.H));
-        v.addOverlay({ element: el, location: point, placement: OpenSeadragon.Placement.CENTER });
+        // Tamaño del marcador RELATIVO al plano (escala con el zoom).
+        const sizeImg = 0.016 * info.W;           // diámetro del marcador en px de imagen
+        const imgX = (lot.x / 100) * info.W;
+        const imgY = (lot.y / 100) * info.H;
+        const rect = v.viewport.imageToViewportRectangle(
+          new OpenSeadragon.Rect(imgX - sizeImg / 2, imgY - sizeImg / 2, sizeImg, sizeImg)
+        );
+        v.addOverlay({ element: el, location: rect });
         drawn++;
       } catch (err) { console.warn("Error dibujando marcador:", lot && lot.id, err); }
     });
