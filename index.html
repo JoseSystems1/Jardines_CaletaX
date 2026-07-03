@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 
@@ -265,17 +265,20 @@
         <input type="number" id="lotModalPriceInput" class="calc-row__price" min="0" step="any" inputmode="decimal" placeholder="precio por m²">
       </div>
 
-      <label class="field-label" for="lotModalRateInput">¿Cuál es la tarifa del dólar en la actualidad?</label>
+      <label class="field-label" for="lotModalRateInput">Tasa del dólar actual (se cambia en el panel de admin, arriba de “Cerrar sesión”)</label>
       <div class="calc-row">
         <span class="price-field__prefix">RD$</span>
-        <input type="number" id="lotModalRateInput" class="calc-row__rate" min="0" step="any" inputmode="decimal" placeholder="ej. 63.50">
+        <input type="number" id="lotModalRateInput" class="calc-row__rate" inputmode="decimal" placeholder="—" readonly>
         <span class="calc-row__perusd">por US$&nbsp;1</span>
       </div>
 
       <div class="price-preview" id="lotModalPricePreview"></div>
 
       <label class="field-label" for="lotModalDateInput">Fecha de reserva / venta (la verá todo el mundo)</label>
-      <input type="date" id="lotModalDateInput">
+      <div class="date-row">
+        <input type="date" id="lotModalDateInput">
+        <button type="button" class="btn btn--ghost btn--small" id="btnPrintLot" title="Imprimir esta ficha del solar">🖨 Imprimir</button>
+      </div>
 
       <label class="field-label" for="lotModalNote">Nota interna (solo admin)</label>
       <textarea id="lotModalNote" rows="2" placeholder="Ej. nombre del cliente, depósito, contacto…"></textarea>
@@ -294,6 +297,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=38"></script>
+<script src="script.js?v=41"></script>
 </body>
 </html>

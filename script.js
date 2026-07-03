@@ -843,13 +843,9 @@
   $("#lotBackdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeModals(); });
   $("#lotModalPriceInput").addEventListener("input", updatePricePreview);
   $("#lotModalAreaInput").addEventListener("input", updatePricePreview);
-  $("#lotModalRateInput").addEventListener("input", updatePricePreview);
-  $("#lotModalRateInput").addEventListener("change", () => {
-    const raw = $("#lotModalRateInput").value.trim();
-    const n = raw === "" ? NaN : Number(raw.replace(/,/g, ""));
-    if (isNaN(n) || n <= 0) return;
-    saveManualRate(n);
-  });
+  // La tasa del dólar SOLO se cambia (y se fija para todos) desde el recuadro
+  // "TASA DEL DÓLAR" del panel de admin. Aquí en el cuadro del solar es solo
+  // informativa (no modifica la tasa global).
 
   function collectLotModalPatch() {
     let status = $("#lotModalStatusSelect").value;
@@ -869,13 +865,84 @@
 
   $("#btnSaveLot").addEventListener("click", () => {
     if (!activeLotId) return;
-    const rRaw = $("#lotModalRateInput").value.trim();
-    const rn = rRaw === "" ? NaN : Number(rRaw.replace(/,/g, ""));
-    if (!isNaN(rn) && rn > 0 && rn !== usdDopRate) saveManualRate(rn);
     updateLot(activeLotId, collectLotModalPatch());
     toast(`Solar #${activeLotId} actualizado`);
     closeModals();
   });
+
+  // Imprimir la ficha del solar (solo admin). Usa un iframe oculto: es más
+  // confiable que abrir ventana nueva (no sale en blanco ni lo bloquea el navegador).
+  function printLotInfo() {
+    const lot = activeLotId ? currentState()[activeLotId] : null;
+    if (!lot) return;
+    const t = computeTotals(lot);
+    const proyecto = P().title.replace(/\u00A0/g, " ");
+    const rate = (t && t.rate) ? t.rate : usdDopRate;
+    const rows = [
+      ["Proyecto", proyecto],
+      ["Solar No.", lot.id],
+      ["Área", fmtArea(lot.area)],
+      ["Estado", STATUS_LABEL[lot.status]],
+      ["Precio (RD$)", t ? fmtMoney(t.dop, "DOP") : "A consultar"],
+      ["Precio (US$)", t ? fmtMoney(t.usd, "USD") : "A consultar"],
+      ["Tasa aplicada", "RD$ " + Number(rate).toFixed(2) + " por US$1"],
+      [(lot.status === "vendido" ? "Fecha de venta" : "Fecha de reserva"), lot.reservedDate ? fmtDateOnly(lot.reservedDate) : "—"],
+      ["Actualizado", fmtDate(lot.updatedAt)],
+    ];
+    const rowsHtml = rows.map(([k, v]) =>
+      `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(String(v))}</td></tr>`).join("");
+    const notaHtml =
+      '<div class="nota"><div class="nota__label">Nota interna</div>' +
+      '<div class="nota__box">' + (lot.note ? escapeHtml(lot.note).replace(/\n/g, "<br>") : "—") + '</div></div>';
+    const html =
+      '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Solar No. ' + escapeHtml(String(lot.id)) + '</title><style>' +
+      '*{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#0B2540;padding:24px;margin:0;}' +
+      'h1{font-size:20px;margin:0;} .sub{color:#666;font-size:12px;margin:2px 0 18px;}' +
+      'table{border-collapse:collapse;width:100%;max-width:560px;}' +
+      'th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #ddd;font-size:14px;}' +
+      'th{width:190px;color:#555;font-weight:600;} td{font-weight:700;}' +
+      '.nota{max-width:560px;margin:18px 0 0;} .nota__label{font-size:12px;color:#555;font-weight:600;margin-bottom:6px;}' +
+      '.nota__box{border:1px solid #ddd;border-radius:8px;padding:12px 14px;font-size:14px;min-height:70px;' +
+      'white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere;line-height:1.5;}' +
+      '.foot{margin-top:18px;font-size:11px;color:#999;}' +
+      '</style></head><body>' +
+      '<h1>ADONEL SERVICES, SRL</h1>' +
+      '<p class="sub">' + escapeHtml(proyecto) + ' — Ficha del solar</p>' +
+      '<table>' + rowsHtml + '</table>' +
+      notaHtml +
+      '<p class="foot">Impreso el ' + escapeHtml(fmtDate(new Date().toISOString())) + '</p>' +
+      '</body></html>';
+
+    // iframe oculto
+    const old = document.getElementById("printFrame");
+    if (old) old.remove();
+    const iframe = document.createElement("iframe");
+    iframe.id = "printFrame";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+    document.body.appendChild(iframe);
+
+    const doPrint = () => {
+      try {
+        const win = iframe.contentWindow;
+        win.focus();
+        win.print();
+      } catch (e) { toast("No se pudo imprimir en este navegador"); }
+    };
+
+    const idoc = iframe.contentWindow.document;
+    idoc.open();
+    idoc.write(html);
+    idoc.close();
+    // esperar a que el contenido del iframe esté listo antes de imprimir
+    if (iframe.contentWindow.document.readyState === "complete") {
+      setTimeout(doPrint, 250);
+    } else {
+      iframe.onload = () => setTimeout(doPrint, 250);
+    }
+  }
+  const btnPrintLot = $("#btnPrintLot");
+  if (btnPrintLot) btnPrintLot.addEventListener("click", printLotInfo);
 
   $("#btnRemoveMarker").addEventListener("click", () => {
     if (!activeLotId) return;

@@ -469,6 +469,10 @@ body.map-fullscreen-active{ overflow: hidden; }
   width:100%; font-size:14px; padding:10px 12px; border:1px solid var(--line);
   border-radius:8px; background: var(--sky-50); font-family: var(--f-mono);
 }
+/* fila de la fecha con el botón de imprimir al lado */
+.date-row{ display:flex; gap:8px; align-items:center; }
+.date-row input[type=date]{ flex:1 1 auto; min-width:0; }
+#btnPrintLot{ flex:0 0 auto; white-space:nowrap; }
 
 .price-field{ display:flex; gap:8px; align-items:stretch; }
 .price-field__currency{ flex:0 0 78px; width:78px !important; }
