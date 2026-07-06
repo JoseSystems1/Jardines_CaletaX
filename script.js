@@ -197,6 +197,9 @@
   /* ---------------------------------------------------------------
      3. UTILIDADES
   ----------------------------------------------------------------- */
+  const brandLogo = document.getElementById("brandLogo");
+  if (brandLogo) brandLogo.addEventListener("error", () => { brandLogo.style.display = "none"; });
+
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -412,7 +415,7 @@
           '<svg viewBox="0 0 44 44" preserveAspectRatio="xMidYMid meet">' +
           '<circle class="marker__bg" cx="22" cy="22" r="19"></circle>' +
           '<text class="marker__txt" x="22" y="22" text-anchor="middle" dominant-baseline="central" font-size="' + fontSize + '">' +
-          lot.id + '</text></svg>';
+          escapeHtml(lot.id) + '</text></svg>';
         let tip = "Solar #" + lot.id + " — " + STATUS_LABEL[lot.status];
         if (lot.reservedDate) tip += " · " + fmtDateOnly(lot.reservedDate);
         if (isAdmin) { const pTxt = fmtPriceBoth(lot); if (pTxt) tip += " · " + pTxt; }
@@ -460,11 +463,11 @@
       const dateTxt = (lot.status !== "disponible" && lot.reservedDate)
         ? (lot.status === "vendido" ? "Vendido el " : "Reservado el ") + fmtDateOnly(lot.reservedDate) : null;
       li.innerHTML = `
-        <div class="lot-row__badge is-${lot.status}">#${lot.id}</div>
+        <div class="lot-row__badge is-${lot.status}">#${escapeHtml(lot.id)}</div>
         <div class="lot-row__info">
-          <div class="lot-row__title">Solar No. ${lot.id} <span class="lot-row__meta">· ${fmtArea(lot.area)}</span></div>
+          <div class="lot-row__title">Solar No. ${escapeHtml(lot.id)} <span class="lot-row__meta">· ${fmtArea(lot.area)}</span></div>
           <div class="lot-row__status is-${lot.status}">${STATUS_LABEL[lot.status]}</div>
-          ${dateTxt ? `<div class="lot-row__date">${dateTxt}</div>` : ""}
+          ${dateTxt ? `<div class="lot-row__date">${escapeHtml(dateTxt)}</div>` : ""}
           ${priceHtml}
         </div>`;
       li.addEventListener("click", () => openLotModal(lot.id));
@@ -813,6 +816,7 @@
       $("#lotModalReserved").textContent = fmtDateOnly(lot.reservedDate);
       reservedRow.hidden = false;
     } else { reservedRow.hidden = true; }
+
     const adminBox = $("#lotModalAdminControls");
     adminBox.hidden = !isAdmin;
     if (isAdmin) {
@@ -830,6 +834,8 @@
     }
     $("#lotBackdrop").hidden = false;
   }
+
+
 
   function closeModals() {
     $("#lotBackdrop").hidden = true;
