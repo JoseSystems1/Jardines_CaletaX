@@ -449,7 +449,13 @@
     list.innerHTML = "";
     let lots = Object.values(currentState()).sort((a, b) => a.id - b.id);
     if (currentFilter === "activos") lots = lots.filter((l) => l.status !== "disponible");
-    if (lots.length === 0) { empty.hidden = false; return; }
+    else if (currentFilter === "disponibles") lots = lots.filter((l) => l.status === "disponible");
+    if (lots.length === 0) {
+      empty.textContent = currentFilter === "disponibles"
+        ? "No hay solares disponibles en este momento."
+        : (currentFilter === "activos" ? "Aún no hay solares reservados ni vendidos." : "No hay solares para mostrar.");
+      empty.hidden = false; return;
+    }
     empty.hidden = true;
     lots.forEach((lot) => {
       const li = document.createElement("li");
@@ -834,6 +840,7 @@
     }
     $("#lotBackdrop").hidden = false;
   }
+
 
 
 

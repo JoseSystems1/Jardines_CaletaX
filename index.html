@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=15">
+<link rel="stylesheet" href="styles.css?v=17">
 </head>
 <body>
 
@@ -146,6 +146,7 @@
     <div class="sidebar__body" id="sidebarBody">
       <div class="filter-chips" id="filterChips">
         <button class="chip is-active" data-filter="activos" type="button">Reservados/Vendidos</button>
+        <button class="chip" data-filter="disponibles" type="button">Disponibles</button>
         <button class="chip" data-filter="todos" type="button">Todos los solares</button>
       </div>
       <ul class="lot-list" id="lotList" role="list"></ul>
@@ -296,6 +297,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=46"></script>
+<script src="script.js?v=49"></script>
 </body>
 </html>
