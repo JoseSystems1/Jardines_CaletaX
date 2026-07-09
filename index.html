@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=17">
+<link rel="stylesheet" href="styles.css?v=22">
 </head>
 <body>
 
@@ -236,7 +236,10 @@
   <div class="modal modal--lot" role="dialog" aria-modal="true" aria-labelledby="lotModalTitle">
     <button type="button" class="modal__close" id="btnCloseLotModal" aria-label="Cerrar">✕</button>
     <span class="modal__eyebrow" id="lotModalEyebrow">SOLAR</span>
-    <h2 id="lotModalTitle">—</h2>
+    <div class="lot-title-row">
+      <h2 id="lotModalTitle">—</h2>
+      <button type="button" class="btn btn--small btn--ghost" id="btnDocEdit" hidden>📎 Documentación</button>
+    </div>
     <dl class="lot-detail-grid">
       <div><dt>Área</dt><dd id="lotModalArea">—</dd></div>
       <div><dt>Estado</dt><dd id="lotModalStatusText">—</dd></div>
@@ -245,6 +248,12 @@
       <div id="lotModalReservedRow" hidden><dt id="lotModalReservedLabel">Fecha de reserva</dt><dd id="lotModalReserved">—</dd></div>
       <div><dt>Actualizado</dt><dd id="lotModalUpdated">—</dd></div>
     </dl>
+
+    <!-- Documentos del solar: SIEMPRE visibles para cualquier usuario -->
+    <div class="lot-docs" id="lotModalDocs">
+      <button type="button" class="btn btn--doc" id="btnDocPlano">📐 Plano catastral</button>
+      <button type="button" class="btn btn--doc" id="btnDocTitulo">📄 Título del terreno</button>
+    </div>
 
     <div id="lotModalAdminControls" hidden>
       <label class="field-label" for="lotModalStatusSelect">Cambiar estado</label>
@@ -295,8 +304,44 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<!-- Visor de documentos (foto/plano) dentro de la misma página -->
+<div class="doc-viewer" id="docViewer" hidden>
+  <div class="doc-viewer__bar">
+    <span class="doc-viewer__title" id="docViewerTitle">Documento</span>
+    <span class="doc-viewer__zoom" id="docViewerZoom">
+      <button class="doc-viewer__btn" id="docZoomOut" type="button" aria-label="Alejar">−</button>
+      <button class="doc-viewer__btn" id="docZoomReset" type="button">Ajustar</button>
+      <button class="doc-viewer__btn" id="docZoomIn" type="button" aria-label="Acercar">+</button>
+    </span>
+    <button class="doc-viewer__btn" id="docViewerPrint" type="button">🖨 Imprimir</button>
+    <button class="doc-viewer__close" id="docViewerClose" type="button" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="doc-viewer__body" id="docViewerBody"></div>
+</div>
+
+<!-- Cuadro de Documentación (solo admin): pegar los enlaces -->
+<div class="modal-backdrop modal-backdrop--top" id="docEditBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="docEditTitle">
+    <button type="button" class="modal__close" id="btnDocEditClose" aria-label="Cerrar">✕</button>
+    <span class="modal__eyebrow">DOCUMENTACIÓN</span>
+    <h2 id="docEditTitle">Documentos del <span id="docEditLotLabel">Solar</span></h2>
+    <p class="modal__hint">Pega el enlace público (de Cloudflare R2) de cada documento. Si dejas uno vacío, ese botón aparecerá como “aún no disponible”.</p>
+
+    <label class="field-label" for="docEditPlano">📐 Enlace del PLANO CATASTRAL</label>
+    <input type="url" id="docEditPlano" placeholder="https://pub-xxxx.r2.dev/jardines10/1-plano.webp">
+
+    <label class="field-label" for="docEditTitulo">📄 Enlace del TÍTULO del terreno</label>
+    <input type="url" id="docEditTitulo" placeholder="https://pub-xxxx.r2.dev/jardines10/1-titulo.webp">
+
+    <div class="modal__actions">
+      <button type="button" class="btn btn--ghost" id="btnDocEditCancel">Cancelar</button>
+      <button type="button" class="btn btn--primary" id="btnDocEditSave">Guardar documentación</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=49"></script>
+<script src="script.js?v=55"></script>
 </body>
 </html>

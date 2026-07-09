@@ -106,7 +106,8 @@
     const obj = {};
     PROJECTS[projKey].lots.forEach(([id, area]) => {
       obj[id] = { id, area, status: "disponible", x: null, y: null, note: "",
-        price: null, currency: "DOP", reservedDate: null, rate: null, updatedAt: null };
+        price: null, currency: "DOP", reservedDate: null, rate: null,
+        planoUrl: null, tituloUrl: null, updatedAt: null };
     });
     return obj;
   }
@@ -161,6 +162,8 @@
       price: row.price == null || row.price === "" ? null : Number(row.price),
       currency: row.currency || "DOP",
       reservedDate: row.reserved_date || null,
+      planoUrl: row.plano_url || null,
+      tituloUrl: row.titulo_url || null,
       rate: row.rate == null || row.rate === "" ? null : Number(row.rate),
       updatedAt: row.updated_at,
     };
@@ -556,6 +559,7 @@
     if (sb) {
       const row = { status: lot.status, area: lot.area, x: lot.x, y: lot.y, note: lot.note,
         price: lot.price, currency: lot.currency, reserved_date: lot.reservedDate,
+        plano_url: lot.planoUrl || null, titulo_url: lot.tituloUrl || null,
         rate: lot.rate, updated_at: updatedAt };
       sb.from("lots").update(row).eq("project", activeProject).eq("id", Number(id))
         .then(({ error }) => { if (error) { console.warn("❌ Error guardando en Supabase:", error); toast("⚠️ Error al guardar"); } });
@@ -591,7 +595,12 @@
     reopenLotModalAfterPlacement = false;
   }
   $("#btnCancelPlacement").addEventListener("click", exitPlacementMode);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { exitPlacementMode(); closeModals(); } });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!$("#docViewer").hidden) { closeDocViewer(); return; }
+    if (!$("#docEditBackdrop").hidden) { closeDocEditor(); return; }
+    exitPlacementMode(); closeModals();
+  });
 
   /* ---------------------------------------------------------------
      11. VISORES OpenSeadragon
@@ -823,6 +832,18 @@
       reservedRow.hidden = false;
     } else { reservedRow.hidden = true; }
 
+    // Documentos: SOLO en Caleta IX (jardines 9) — prueba temporal.
+    const docsEnabled = (activeProject === "ix");
+    if (docsEnabled) {
+      const planoUrl = safeDocUrl(lot.planoUrl);
+      const tituloUrl = safeDocUrl(lot.tituloUrl);
+      setupDocButton($("#btnDocPlano"), planoUrl);
+      setupDocButton($("#btnDocTitulo"), tituloUrl);
+    }
+    $("#lotModalDocs").hidden = !docsEnabled;
+    // Botón "Documentación" (solo admin, y solo en Caleta IX)
+    $("#btnDocEdit").hidden = !(isAdmin && docsEnabled);
+
     const adminBox = $("#lotModalAdminControls");
     adminBox.hidden = !isAdmin;
     if (isAdmin) {
@@ -840,6 +861,185 @@
     }
     $("#lotBackdrop").hidden = false;
   }
+
+  /* ===== Documentos del solar (plano catastral y título) ===== */
+  // Solo enlaces http(s) válidos
+  function safeDocUrl(u) {
+    if (!u) return null;
+    const s = String(u).trim();
+    return /^https?:\/\//i.test(s) ? s : null;
+  }
+  // Deja el botón activo (con enlace) o en estado "no disponible"
+  function setupDocButton(btn, url) {
+    if (!btn) return;
+    if (url) { btn.dataset.url = url; btn.classList.remove("is-unavailable"); }
+    else { delete btn.dataset.url; btn.classList.add("is-unavailable"); }
+  }
+  // ----- Zoom y arrastre del documento (mouse, rueda y táctil) -----
+  let dz = { scale: 1, x: 0, y: 0 };
+  let dzImg = null;
+
+  function dzApply() {
+    if (!dzImg) return;
+    dzImg.style.transform = "translate(" + dz.x + "px," + dz.y + "px) scale(" + dz.scale + ")";
+    dzImg.classList.toggle("is-zoomed", dz.scale > 1.01);
+  }
+  function dzReset() { dz = { scale: 1, x: 0, y: 0 }; dzApply(); }
+  const dzClamp = (s) => Math.min(6, Math.max(1, s));
+  function dzZoomTo(newScale) {
+    const s = dzClamp(newScale);
+    if (s === 1) { dz = { scale: 1, x: 0, y: 0 }; } else { dz.scale = s; }
+    dzApply();
+  }
+
+  function attachDocZoom(img) {
+    dzImg = img; dzReset();
+    const body = $("#docViewerBody");
+
+    // Rueda del mouse: zoom hacia el puntero
+    body.addEventListener("wheel", (e) => {
+      if (!dzImg) return;
+      e.preventDefault();
+      const prev = dz.scale;
+      const next = dzClamp(prev * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+      if (next === prev) return;
+      const r = dzImg.getBoundingClientRect();
+      const cx = e.clientX - (r.left + r.width / 2);
+      const cy = e.clientY - (r.top + r.height / 2);
+      const k = next / prev;
+      dz.x = dz.x - cx * (k - 1);
+      dz.y = dz.y - cy * (k - 1);
+      dz.scale = next;
+      if (next === 1) { dz.x = 0; dz.y = 0; }
+      dzApply();
+    }, { passive: false });
+
+    // Doble clic / doble toque: acercar o restablecer
+    img.addEventListener("dblclick", (e) => { e.preventDefault(); dzZoomTo(dz.scale > 1.01 ? 1 : 2.5); });
+
+    // Arrastrar con mouse o dedo (cuando hay zoom), y pellizco con dos dedos
+    const pts = new Map();
+    let startDist = 0, startScale = 1, last = null;
+    img.addEventListener("pointerdown", (e) => {
+      img.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        startDist = Math.hypot(a.x - b.x, a.y - b.y);
+        startScale = dz.scale;
+      } else { last = { x: e.clientX, y: e.clientY }; }
+    });
+    img.addEventListener("pointermove", (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {          // pellizco
+        e.preventDefault();
+        const [a, b] = [...pts.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (startDist > 0) dzZoomTo(startScale * (d / startDist));
+      } else if (last && dz.scale > 1.01) {  // arrastrar
+        e.preventDefault();
+        dz.x += e.clientX - last.x;
+        dz.y += e.clientY - last.y;
+        last = { x: e.clientX, y: e.clientY };
+        dzApply();
+      }
+    });
+    const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) startDist = 0; if (pts.size === 0) last = null; };
+    img.addEventListener("pointerup", up);
+    img.addEventListener("pointercancel", up);
+  }
+
+  // Visor DENTRO de la página (sin abrir otra pestaña)
+  let currentDoc = { url: null, title: "" };
+  function openDocViewer(url, title) {
+    const safe = safeDocUrl(url);
+    if (!safe) return;
+    const body = $("#docViewerBody");
+    if (!body) return;
+    currentDoc = { url: safe, title: title || "Documento" };
+    $("#docViewerTitle").textContent = title || "Documento";
+    const isPdf = /\.pdf(\?|#|$)/i.test(safe);
+    $("#docViewer").hidden = false;
+    body.innerHTML = '<div class="doc-viewer__loading">Cargando…</div>';
+    if (isPdf) {
+      $("#docViewerZoom").hidden = true;
+      const ifr = document.createElement("iframe");
+      ifr.src = safe; ifr.title = title || "Documento";
+      ifr.addEventListener("load", () => { body.innerHTML = ""; body.appendChild(ifr); });
+      setTimeout(() => { if (!body.contains(ifr)) { body.innerHTML = ""; body.appendChild(ifr); } }, 1200);
+    } else {
+      $("#docViewerZoom").hidden = false;
+      const img = new Image();
+      img.alt = title || "Documento";
+      img.addEventListener("load", () => { body.innerHTML = ""; body.appendChild(img); attachDocZoom(img); });
+      img.addEventListener("error", () => { body.innerHTML = '<p class="doc-viewer__loading">No se pudo cargar el documento.</p>'; });
+      img.src = safe;
+    }
+  }
+  // Imprime el documento que ya se ve en pantalla, sin volver a pedirlo a R2.
+  function printCurrentDoc() {
+    if (!currentDoc.url) return;
+    document.body.classList.add("printing-doc");
+    setTimeout(() => { try { window.print(); } catch (e) { toast("No se pudo imprimir"); } }, 60);
+  }
+  window.addEventListener("afterprint", () => document.body.classList.remove("printing-doc"));
+  function closeDocViewer() {
+    const v = $("#docViewer"); if (!v) return;
+    v.hidden = true; $("#docViewerBody").innerHTML = "";
+    dzImg = null; dz = { scale: 1, x: 0, y: 0 };
+  }
+  // Clic en los botones públicos: si hay enlace abre el visor; si no, avisa
+  function bindDocButton(sel, label) {
+    const btn = $(sel);
+    if (btn) btn.addEventListener("click", () => {
+      const url = btn.dataset.url;
+      if (url) openDocViewer(url, label);
+      else toast("Aún están en elaboración, por el momento no están disponibles");
+    });
+  }
+  bindDocButton("#btnDocPlano", "Plano catastral");
+  bindDocButton("#btnDocTitulo", "Título del terreno");
+  (function wireDocViewerClose() {
+    const c = $("#docViewerClose"); if (c) c.addEventListener("click", closeDocViewer);
+    const pr = $("#docViewerPrint"); if (pr) pr.addEventListener("click", printCurrentDoc);
+    const zi = $("#docZoomIn"); if (zi) zi.addEventListener("click", () => dzZoomTo(dz.scale * 1.3));
+    const zo = $("#docZoomOut"); if (zo) zo.addEventListener("click", () => dzZoomTo(dz.scale / 1.3));
+    const zr = $("#docZoomReset"); if (zr) zr.addEventListener("click", () => dzZoomTo(1));
+    const b = $("#docViewerBody"); if (b) b.addEventListener("click", (e) => { if (e.target === b) closeDocViewer(); });
+  })();
+
+  /* ===== Editor de Documentación (solo admin) ===== */
+  function openDocEditor() {
+    if (!activeLotId) return;
+    const lot = currentState()[activeLotId];
+    if (!lot) return;
+    $("#docEditLotLabel").textContent = "Solar No. " + activeLotId;
+    $("#docEditPlano").value = lot.planoUrl || "";
+    $("#docEditTitulo").value = lot.tituloUrl || "";
+    $("#docEditBackdrop").hidden = false;
+  }
+  function closeDocEditor() { $("#docEditBackdrop").hidden = true; }
+  (function wireDocEditor() {
+    const btn = $("#btnDocEdit"); if (btn) btn.addEventListener("click", openDocEditor);
+    const cancel = $("#btnDocEditCancel"); if (cancel) cancel.addEventListener("click", closeDocEditor);
+    const close = $("#btnDocEditClose"); if (close) close.addEventListener("click", closeDocEditor);
+    $("#docEditBackdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDocEditor(); });
+    const save = $("#btnDocEditSave");
+    if (save) save.addEventListener("click", () => {
+      if (!activeLotId) return;
+      const rawPlano = ($("#docEditPlano").value || "").trim();
+      const rawTitulo = ($("#docEditTitulo").value || "").trim();
+      const planoUrl = rawPlano === "" ? null : safeDocUrl(rawPlano);
+      const tituloUrl = rawTitulo === "" ? null : safeDocUrl(rawTitulo);
+      if (rawPlano !== "" && !planoUrl) { toast("El enlace del plano debe empezar con https://"); return; }
+      if (rawTitulo !== "" && !tituloUrl) { toast("El enlace del título debe empezar con https://"); return; }
+      updateLot(activeLotId, { planoUrl, tituloUrl });
+      toast("Documentación del Solar #" + activeLotId + " guardada");
+      closeDocEditor();
+      openLotModal(activeLotId); // refresca los botones del solar
+    });
+  })();
 
 
 
