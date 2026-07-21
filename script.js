@@ -87,6 +87,20 @@
     [211,552.15],[212,460.00],[213,460.00],[214,460.00],[215,460.00],
   ];
 
+  const LOTS_BASE_IX2 = [
+    [216,402.45],[217,230],[218,230],[219,230],[220,230],[221,230],[222,230],
+    [223,230],[224,230],[225,230],[226,230],[227,230],[228,230],[229,230],
+    [230,230],[231,230],[232,400],[233,400.1],[234,230],[235,230],[236,230],
+    [237,230],[238,230],[239,230],[240,230],[241,230],[242,230],[243,230],
+    [244,230],[245,230],[246,230],[247,230],[248,230],[249,402.45],[250,405],
+    [251,205],[252,205],[253,205],[254,205],[255,205],[256,205],[257,205],
+    [258,205],[259,205],[260,205],[261,205],[262,205],[263,205],[264,205],
+    [265,205],[266,205],[267,205],[268,409.9],[269,400],[270,200],[271,200],
+    [272,200],[273,200],[274,200],[275,200],[276,200],[277,200],[278,200],
+    [279,200],[280,200],[281,200],[282,200],[283,200],[284,200],[285,200],
+    [286,200],[287,405],
+  ];
+
   const PROJECTS = {
     x: { key: "x", title: "Urbanización Jardines de Caleta\u00A0X",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
@@ -94,6 +108,9 @@
     ix: { key: "ix", title: "Urbanización Jardines de Caleta\u00A0IX",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
       dzi: "assets/dzi-ix/plano.dzi", imgW: 10300, imgH: 9900, lots: LOTS_BASE_IX },
+    ix2: { key: "ix2", title: "Urbanización Jardines de Caleta\u00A0IX — Etapa 2",
+      subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
+      dzi: "assets/dzi-ix2/plano.dzi", imgW: 7425, imgH: 6861, lots: LOTS_BASE_IX2 },
   };
 
   let activeProject = "x";
@@ -125,7 +142,7 @@
     } catch (e) { console.warn("No se pudo leer localStorage:", projKey, e); return defaultState(projKey); }
   }
 
-  const states = { x: defaultState("x"), ix: defaultState("ix") };
+  const states = { x: defaultState("x"), ix: defaultState("ix"), ix2: defaultState("ix2") };
   function currentState() { return states[activeProject]; }
 
   function persistLocal(projKey) {
@@ -146,7 +163,7 @@
       }
     };
     window.addEventListener("storage", (ev) => {
-      ["x", "ix"].forEach((pk) => {
+      Object.keys(PROJECTS).forEach((pk) => {
         if (ev.key === storageKey(pk)) { states[pk] = loadLocalState(pk); repaintMarkers(pk); if (pk === activeProject) renderAll(); else renderTabsMeta(); }
       });
     });
@@ -174,9 +191,10 @@
     try {
       const { data, error } = await sb.from("lots").select("*").order("project").order("id");
       if (error || !data || data.length === 0) { console.warn("❌ Error al cargar Supabase:", error); return; }
-      const fresh = { x: defaultState("x"), ix: defaultState("ix") };
+      const fresh = {};
+      Object.keys(PROJECTS).forEach((pk) => { fresh[pk] = defaultState(pk); });
       data.forEach((row) => { const pk = row.project; if (fresh[pk] && fresh[pk][row.id]) fresh[pk][row.id] = rowToLot(row); });
-      states.x = fresh.x; states.ix = fresh.ix;
+      Object.keys(fresh).forEach((pk) => { states[pk] = fresh[pk]; });
       console.log("✅ Estados sincronizados desde Supabase");
     } catch (err) { console.error("❌ Error sincronizando Supabase:", err); }
   }
@@ -394,6 +412,7 @@
   function renderTabsMeta() {
     $("#tabMetaX").textContent = tabMeta("x");
     $("#tabMetaIx").textContent = tabMeta("ix");
+    const m2 = $("#tabMetaIx2"); if (m2) m2.textContent = tabMeta("ix2");
   }
 
   /* ---------------------------------------------------------------
@@ -609,6 +628,7 @@
   const VW = {
     x:  { ready: false, built: false, W: PROJECTS.x.imgW,  H: PROJECTS.x.imgH },
     ix: { ready: false, built: false, W: PROJECTS.ix.imgW, H: PROJECTS.ix.imgH },
+    ix2:{ ready: false, built: false, W: PROJECTS.ix2.imgW, H: PROJECTS.ix2.imgH },
   };
   let IMG_W = PROJECTS.x.imgW, IMG_H = PROJECTS.x.imgH;
 
@@ -639,7 +659,9 @@
     OSD[pk] = v;
     v.addHandler("open-failed", (e) => {
       VW[pk].ready = false;
-      toast("⚠️ No se pudo cargar el plano de " + (pk === "ix" ? "Caleta IX" : "Caleta X") + ". Revisa que la carpeta 'assets/" + (pk === "ix" ? "dzi-ix" : "dzi") + "' esté subida.");
+      const nombre = pk === "ix" ? "Caleta IX" : (pk === "ix2" ? "Caleta IX Etapa 2" : "Caleta X");
+      const carpeta = pk === "ix" ? "dzi-ix" : (pk === "ix2" ? "dzi-ix2" : "dzi");
+      toast("⚠️ No se pudo cargar el plano de " + nombre + ". Revisa que la carpeta 'assets/" + carpeta + "' esté subida.");
     });
     v.addHandler("zoom", () => {
       if (pk !== activeProject) return;
@@ -673,8 +695,7 @@
     return v;
   }
 
-  viewportEl("x").style.display  = activeProject === "x"  ? "" : "none";
-  viewportEl("ix").style.display = activeProject === "ix" ? "" : "none";
+  Object.keys(PROJECTS).forEach((pk) => { const el = viewportEl(pk); if (el) el.style.display = activeProject === pk ? "" : "none"; });
   buildViewer(activeProject);
   let viewer = OSD[activeProject];
 
@@ -727,8 +748,7 @@
   function switchProject(projKey) {
     if (!PROJECTS[projKey] || projKey === activeProject) return;
     activeProject = projKey;
-    viewportEl("x").style.display  = projKey === "x"  ? "" : "none";
-    viewportEl("ix").style.display = projKey === "ix" ? "" : "none";
+    Object.keys(PROJECTS).forEach((pk) => { const el = viewportEl(pk); if (el) el.style.display = projKey === pk ? "" : "none"; });
     buildViewer(projKey);
     viewer = OSD[projKey];
     IMG_W = VW[projKey].W; IMG_H = VW[projKey].H;
@@ -1307,13 +1327,16 @@
     subscribeRateRealtime();
     recomputeRate();
     if (sb) { await loadStateFromSupabase(); subscribeRealtime(); }
-    viewportEl("x").style.aspectRatio  = PROJECTS.x.imgW + " / " + PROJECTS.x.imgH;
-    viewportEl("ix").style.aspectRatio = PROJECTS.ix.imgW + " / " + PROJECTS.ix.imgH;
+    Object.keys(PROJECTS).forEach((pk) => {
+      const el = viewportEl(pk);
+      if (el) el.style.aspectRatio = PROJECTS[pk].imgW + " / " + PROJECTS[pk].imgH;
+    });
     await checkAdminSession();
     setAdmin(isAdmin);
     renderAll();
     repaintMarkers("x");
     repaintMarkers("ix");
+    repaintMarkers("ix2");
     console.log("✅ === APP LISTA ===");
   }
 
