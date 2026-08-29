@@ -85,6 +85,10 @@ button{ font-family: var(--f-body); }
 .admin-only{ display: none; }
 body.is-admin .admin-only{ display: inline-flex; }
 
+/* Jardines de Caleta XI: aún no está disponible al público — solo visible con sesión de admin activa */
+.xi-admin-only{ display: none !important; }
+body.is-admin .xi-admin-only{ display: flex !important; }
+
 /* ---------- TITLE BLOCK (header) ---------- */
 .titleblock{
   display:flex; align-items:center; gap:24px;

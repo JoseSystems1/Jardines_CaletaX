@@ -183,7 +183,7 @@
       dzi: "assets/dzi-ix2/plano.dzi", imgW: 7425, imgH: 6861, lots: LOTS_BASE_IX2 },
     xi: { key: "xi", title: "Urbanización Jardines de Caleta\u00A0XI",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
-      dzi: "assets/dzi-xi/plano.dzi", imgW: 8840, imgH: 9782, lots: LOTS_BASE_XI },
+      dzi: "assets/dzi-xi/plano.dzi", imgW: 13332, imgH: 15098, lots: LOTS_BASE_XI },
   };
 
   let activeProject = "x";
@@ -455,7 +455,12 @@
     $("#btnAdminToggle").classList.toggle("is-admin", value);
     $("#adminBtnLabel").textContent = value ? "Modo admin activo" : "Acceso admin";
     document.body.classList.toggle("is-admin", value);
-    if (!value) { $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; exitPlacementMode(); }
+    if (!value) {
+      $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; exitPlacementMode();
+      // Jardines de Caleta XI aún no está disponible al público: si el admin
+      // cierra sesión estando ahí, lo regresamos a Caleta X.
+      if (activeProject === "xi") { switchProject("x"); }
+    }
     renderAll();
   }
 
@@ -822,6 +827,9 @@
   ----------------------------------------------------------------- */
   function switchProject(projKey) {
     if (!PROJECTS[projKey] || projKey === activeProject) return;
+    // Jardines de Caleta XI aún no está disponible al público: solo el admin
+    // (con sesión activa) puede entrar a esta pestaña.
+    if (projKey === "xi" && !isAdmin) return;
     activeProject = projKey;
     Object.keys(PROJECTS).forEach((pk) => { const el = viewportEl(pk); if (el) el.style.display = projKey === pk ? "" : "none"; });
     buildViewer(projKey);
