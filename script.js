@@ -455,12 +455,7 @@
     $("#btnAdminToggle").classList.toggle("is-admin", value);
     $("#adminBtnLabel").textContent = value ? "Modo admin activo" : "Acceso admin";
     document.body.classList.toggle("is-admin", value);
-    if (!value) {
-      $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; exitPlacementMode();
-      // Jardines de Caleta XI aún no está disponible al público: si el admin
-      // cierra sesión estando ahí, lo regresamos a Caleta X.
-      if (activeProject === "xi") { switchProject("x"); }
-    }
+    if (!value) { $("#adminPanel").hidden = true; $("#adminOverlay").hidden = true; exitPlacementMode(); }
     renderAll();
   }
 
@@ -827,9 +822,6 @@
   ----------------------------------------------------------------- */
   function switchProject(projKey) {
     if (!PROJECTS[projKey] || projKey === activeProject) return;
-    // Jardines de Caleta XI aún no está disponible al público: solo el admin
-    // (con sesión activa) puede entrar a esta pestaña.
-    if (projKey === "xi" && !isAdmin) return;
     activeProject = projKey;
     Object.keys(PROJECTS).forEach((pk) => { const el = viewportEl(pk); if (el) el.style.display = projKey === pk ? "" : "none"; });
     buildViewer(projKey);
