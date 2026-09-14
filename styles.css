@@ -387,6 +387,7 @@ body.map-fullscreen-active{ overflow: hidden; }
 @keyframes slideIn{ from{ transform: translateX(24px); opacity:0; } to{ transform:none; opacity:1; } }
 .admin-panel__head{ display:flex; align-items:center; justify-content:space-between; padding: 16px 18px; border-bottom:1px solid var(--line); }
 .admin-panel__head h2{ font-size:16px; }
+.admin-panel__head-actions{ display:flex; align-items:center; gap:8px; }
 .admin-panel__projecttag{
   padding: 10px 18px; font-size:12px; font-weight:600;
   color: var(--blue-700); background: var(--blue-100);
@@ -419,6 +420,7 @@ body.map-fullscreen-active{ overflow: hidden; }
 
 /* ---------- recuadro de TASA del dólar (panel admin) ---------- */
 .admin-rate{ margin: 0 14px; padding: 12px; border:1px solid var(--line); border-radius:12px; background: var(--sky-50); }
+.admin-rate + .admin-rate{ margin-top: 12px; }
 .admin-rate__head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; }
 .admin-rate__title{ font-size:12px; font-weight:700; color: var(--blue-700); text-transform:uppercase; letter-spacing:.04em; }
 .admin-rate__eff{ font-family: var(--f-mono); font-size:13.5px; font-weight:700; color: var(--available); }
@@ -530,6 +532,10 @@ body.map-fullscreen-active{ overflow: hidden; }
 /* fila del título del solar con el botón Documentación (admin) */
 .lot-title-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .lot-title-row h2{ margin:0; }
+
+/* aviso de vencimiento de reserva (dentro del panel admin del solar) */
+.auto-release-hint{ margin: 4px 0 0; font-size:11.5px; color:#5B7894; font-family: var(--f-mono); line-height:1.4; }
+.auto-release-hint[hidden]{ display:none; }
 
 /* botones de documentos del solar (plano catastral / título) */
 .lot-docs{ display:flex; gap:8px; flex-wrap:wrap; margin: 12px 0 2px; }
@@ -670,3 +676,104 @@ body.map-fullscreen-active{ overflow: hidden; }
   .titleblock__text p{ display:none; }
   .lot-detail-grid{ grid-template-columns: 1fr 1fr; }
 }
+
+/* =================================================================
+   NOTAS — blog de notas internas del admin (estilo "libreta" corporativa)
+   ================================================================= */
+.notes-backdrop{ padding:0; }
+.notes-app{
+  width:100%; height:100%; max-width:none; max-height:none;
+  background: var(--paper); border-radius:0; box-shadow:none; padding:0; overflow:hidden;
+  display:grid; grid-template-columns: 260px 1fr;
+}
+.notes-app__brand{
+  background: linear-gradient(160deg, var(--blue-700) 0%, var(--ink) 100%);
+  color:#fff; padding:22px 18px; display:flex; flex-direction:column; gap:14px;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+}
+.notes-app__brand-head{ display:flex; align-items:center; gap:10px; }
+.notes-app__brand-mark{ color: var(--blue-500); flex-shrink:0; }
+.notes-app__brand-text{ display:flex; flex-direction:column; line-height:1.25; min-width:0; }
+.notes-app__brand-name{ font-family: var(--f-display); font-weight:700; font-size:14.5px; letter-spacing:.4px; white-space:nowrap; }
+.notes-app__brand-tag{ font-family: var(--f-mono); font-size:10.5px; color:#9DBADB; margin-top:2px; }
+.notes-app__new{ margin-top:2px; }
+.notes-app__pages{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:6px; flex:1; overflow-y:auto; }
+.notes-app__page{
+  display:flex; align-items:center; gap:6px;
+  padding:9px 11px; border-radius:8px; cursor:pointer; font-size:13px;
+  background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#DCEBF8;
+  transition: background .15s, border-color .15s;
+}
+.notes-app__page:hover{ background: rgba(255,255,255,.13); }
+.notes-app__page.is-active{ background: var(--blue-500); border-color: var(--blue-500); color:#fff; font-weight:600; }
+.notes-app__page-title{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+.notes-app__foot{
+  margin-top:auto; font-size:11px; color:#DCEBF8; font-family: var(--f-mono);
+  border-top:1px solid rgba(255,255,255,.1); padding-top:12px; letter-spacing:.02em;
+  background:none; border-left:none; border-right:none; border-bottom:none;
+  text-align:left; cursor:pointer; display:flex; align-items:center; gap:6px;
+  transition: color .15s;
+}
+.notes-app__foot:hover{ color:#fff; }
+
+.notes-app__editor{ display:flex; flex-direction:column; min-width:0; min-height:0; }
+.notes-app__editor-bar{ display:flex; align-items:center; gap:10px; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.notes-app__title-input{
+  flex:1; min-width:120px; font-family: var(--f-display); font-size:18px; font-weight:700;
+  border:none; outline:none; color:var(--ink); background:transparent;
+}
+.notes-app__saved{ font-size:11px; color: var(--available); font-family: var(--f-mono); white-space:nowrap; }
+.notes-app__close{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:#fff;
+  color:#9DB4CB; cursor:pointer; font-size:14px; padding:0;
+}
+.notes-app__close:hover{ background: var(--sky-50); color: var(--ink); }
+.notes-app__visibility{
+  flex:0 0 auto; display:flex; align-items:center; gap:7px; cursor:pointer;
+  font-size:12.5px; font-weight:600; color:#4A6A8A; user-select:none;
+  padding:7px 12px; border-radius:999px; border:1px solid var(--line); background:#fff;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.notes-app__visibility:has(input:checked){ background: var(--available-bg); border-color: var(--available); color: var(--available); }
+.notes-app__visibility input{ margin:0; accent-color: var(--available); }
+.notes-app__content{
+  flex:1; border:none; outline:none; resize:none; padding:24px 30px;
+  font-family: var(--f-body); font-size:15px; line-height:1.7; color: var(--ink);
+  background: linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0 / 100% 34px;
+}
+
+@media (max-width: 720px){
+  .notes-app{ grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .notes-app__brand{ flex-direction:row; flex-wrap:wrap; padding:14px; max-height:40vh; }
+  .notes-app__brand-head{ width:100%; }
+  .notes-app__new{ flex:1 1 100%; }
+  .notes-app__pages{ flex-direction:row; flex-wrap:wrap; overflow-x:auto; width:100%; }
+  .notes-app__foot{ padding:8px 0 0; }
+  .notes-app__content{ padding:18px 20px; }
+  .notes-app__editor-bar{ padding:12px 14px; }
+  .notes-app__visibility{ order:1; }
+  .notes-app__title-input{ order:0; flex:1 1 100%; }
+}
+
+/* ---------- botón de "Avisos" en el header (visible para todos) ---------- */
+.titleblock__notices{
+  position:relative; display:flex; align-items:center; gap:6px; align-self:stretch;
+  padding: 6px 14px; border-radius: 10px; cursor:pointer;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
+  color:#DCEBF8; font-family: var(--f-display); font-weight:600; font-size:13px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.titleblock__notices:hover{ background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.22); color:#fff; }
+.titleblock__notices-dot{
+  position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%;
+  background: var(--gold); box-shadow: 0 0 0 2px var(--blue-700);
+}
+
+/* ---------- modal de avisos públicos ---------- */
+.notice-modal{ max-width: 420px; }
+.notice-modal__list{ display:flex; flex-direction:column; gap:14px; margin-top:14px; max-height:60vh; overflow-y:auto; }
+.notice-modal__item{ padding:14px 16px; border:1px solid var(--line-soft); border-radius:12px; background: var(--sky-50); }
+.notice-modal__item-title{ font-family: var(--f-display); font-weight:700; font-size:14.5px; color: var(--ink); margin-bottom:6px; }
+.notice-modal__item-body{ font-size:13.5px; color:#4A6A8A; line-height:1.6; white-space:pre-wrap; word-wrap:break-word; }
+.notice-modal__empty{ margin: 18px 0 4px; font-size:13.5px; color:#7C95AE; text-align:center; }

@@ -197,7 +197,8 @@
     PROJECTS[projKey].lots.forEach(([id, area]) => {
       obj[id] = { id, area, status: "disponible", x: null, y: null, note: "",
         price: null, currency: "DOP", reservedDate: null, rate: null,
-        planoUrl: null, tituloUrl: null, updatedAt: null };
+        planoUrl: null, tituloUrl: null, updatedAt: null,
+        reservedAt: null };
     });
     return obj;
   }
@@ -255,6 +256,7 @@
       planoUrl: row.plano_url || null,
       tituloUrl: row.titulo_url || null,
       rate: row.rate == null || row.rate === "" ? null : Number(row.rate),
+      reservedAt: row.reserved_at || null,
       updatedAt: row.updated_at,
     };
   }
@@ -646,6 +648,17 @@
       else if (lot.rate == null) patch.rate = usdDopRate;
     }
 
+    // Se guarda el momento exacto en que el solar pasó a "reservado" (para
+    // poder contar los días de reserva configurados por el admin), y se
+    // limpia si deja de estar reservado.
+    if (patch.status !== undefined) {
+      if (newStatus === "reservado" && lot.status !== "reservado") {
+        patch.reservedAt = new Date().toISOString();
+      } else if (newStatus !== "reservado") {
+        patch.reservedAt = null;
+      }
+    }
+
     const updatedAt = new Date().toISOString();
     Object.assign(lot, patch, { updatedAt });
     renderAll();
@@ -653,7 +666,8 @@
       const row = { status: lot.status, area: lot.area, x: lot.x, y: lot.y, note: lot.note,
         price: lot.price, currency: lot.currency, reserved_date: lot.reservedDate,
         plano_url: lot.planoUrl || null, titulo_url: lot.tituloUrl || null,
-        rate: lot.rate, updated_at: updatedAt };
+        rate: lot.rate, reserved_at: lot.reservedAt,
+        updated_at: updatedAt };
       sb.from("lots").update(row).eq("project", activeProject).eq("id", Number(id))
         .then(({ error }) => { if (error) { console.warn("❌ Error guardando en Supabase:", error); toast("⚠️ Error al guardar"); } });
     } else { persistLocal(activeProject); }
@@ -690,6 +704,8 @@
   $("#btnCancelPlacement").addEventListener("click", exitPlacementMode);
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
+    if (!$("#publicNoticesBackdrop").hidden) { closePublicNotices(); return; }
+    if (!$("#notesBackdrop").hidden) { closeNotesApp(); return; }
     if (!$("#docViewer").hidden) { closeDocViewer(); return; }
     if (!$("#docEditBackdrop").hidden) { closeDocEditor(); return; }
     exitPlacementMode(); closeModals();
@@ -952,6 +968,18 @@
       const hasPin = lot.x != null && lot.y != null;
       $("#btnPlaceMarker").textContent = hasPin ? "Reubicar marcador en el plano" : "Ubicar en el plano";
       $("#btnRemoveMarker").hidden = !hasPin;
+      const expHint = $("#reservationExpiryHint");
+      if (expHint) {
+        if (lot.status === "reservado" && lot.reservedAt) {
+          const expiry = new Date(new Date(lot.reservedAt).getTime() + RESERVATION_DAYS * 24 * 3600 * 1000);
+          expHint.textContent = "Se liberará automáticamente el " +
+            expiry.toLocaleString("es-DO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) +
+            " si nadie lo confirma como vendido (72 horas de reserva).";
+          expHint.hidden = false;
+        } else {
+          expHint.hidden = true;
+        }
+      }
       updatePricePreview();
     }
     $("#lotBackdrop").hidden = false;
@@ -1259,6 +1287,27 @@
     openLotModal(activeLotId);
   });
 
+  /* ---------------------------------------------------------------
+     12b. AUTO-LIBERADO DE RESERVAS (fijo en 72 horas / 3 días)
+     En cuanto un solar pasa a "reservado" se guarda la fecha/hora exacta
+     (reservedAt); si nadie lo marca como vendido dentro de 72 horas, se
+     libera solo. Este plazo es FIJO — no es editable desde el panel.
+     Cualquier navegador con la página abierta revisa esto cada minuto; como
+     usa la misma tabla de Supabase, todos lo ven reflejarse al instante
+     gracias a la suscripción en tiempo real que ya existe.
+  ----------------------------------------------------------------- */
+  const RESERVATION_DAYS = 3; // fijo — 72 horas
+
+  function sweepExpiredReservations() {
+    if (!sb) return;
+    const cutoffIso = new Date(Date.now() - RESERVATION_DAYS * 24 * 3600 * 1000).toISOString();
+    sb.from("lots")
+      .update({ status: "disponible", reserved_date: null, reserved_at: null, rate: null, updated_at: new Date().toISOString() })
+      .eq("status", "reservado")
+      .lte("reserved_at", cutoffIso)
+      .then(({ error }) => { if (error) console.warn("⚠️ Error liberando reservas vencidas:", error); });
+  }
+
   $("#btnPlaceMarker").addEventListener("click", () => {
     if (!activeLotId) return;
     updateLot(activeLotId, collectLotModalPatch());
@@ -1395,13 +1444,240 @@
   });
 
   /* ---------------------------------------------------------------
+     16. NOTAS — blog de notas internas del admin
+     Guarda cada página en Supabase (tabla admin_notes). Si no hay
+     Supabase disponible, usa localStorage como respaldo, igual que el
+     resto de la app.
+  ----------------------------------------------------------------- */
+  const NOTES_LOCAL_KEY = "jcx_admin_notes_v1";
+  let notesList = [];
+  let activeNoteId = null;
+  let noteSaveTimer = null;
+
+  function rowToNote(row) {
+    return { id: row.id, title: row.title || "Sin título", content: row.content || "", position: row.position || 0, isPublic: !!row.is_public };
+  }
+  function persistNotesLocal() {
+    try { localStorage.setItem(NOTES_LOCAL_KEY, JSON.stringify(notesList)); } catch (e) {}
+  }
+  async function loadNotes() {
+    if (sb) {
+      try {
+        const { data, error } = await sb.from("admin_notes").select("*").order("position").order("id");
+        if (!error && data) { notesList = data.map(rowToNote); return; }
+        console.warn("⚠️ No se pudieron cargar las notas de Supabase:", error);
+      } catch (e) { console.warn("⚠️ Error cargando notas:", e); }
+    }
+    try {
+      const raw = localStorage.getItem(NOTES_LOCAL_KEY);
+      notesList = raw ? JSON.parse(raw) : [];
+    } catch (e) { notesList = []; }
+  }
+  async function createNote() {
+    const base = { title: "Nueva página", content: "", position: notesList.length, is_public: false };
+    if (sb) {
+      try {
+        const { data, error } = await sb.from("admin_notes").insert(base).select().single();
+        if (!error && data) {
+          const note = rowToNote(data);
+          notesList.push(note);
+          renderNotesList();
+          openNote(note.id);
+          return;
+        }
+        console.warn("⚠️ No se pudo crear la página en Supabase:", error);
+      } catch (e) { console.warn("⚠️ Error creando nota:", e); }
+    }
+    const note = { title: "Nueva página", content: "", position: notesList.length, isPublic: false, id: "local-" + Date.now() };
+    notesList.push(note);
+    persistNotesLocal();
+    renderNotesList();
+    openNote(note.id);
+  }
+  function saveActiveNote() {
+    const note = notesList.find((n) => n.id === activeNoteId);
+    if (!note) return;
+    note.title = $("#noteTitleInput").value.trim() || "Sin título";
+    note.content = $("#noteContentInput").value;
+    const tag = $("#noteSavedTag");
+    if (tag) tag.textContent = "Guardando…";
+    clearTimeout(noteSaveTimer);
+    noteSaveTimer = setTimeout(async () => {
+      if (sb && typeof note.id === "number") {
+        try {
+          const { error } = await sb.from("admin_notes").update({ title: note.title, content: note.content }).eq("id", note.id);
+          if (tag) tag.textContent = error ? "⚠️ Error al guardar" : "Guardado";
+        } catch (e) { if (tag) tag.textContent = "⚠️ Error al guardar"; }
+      } else {
+        persistNotesLocal();
+        if (tag) tag.textContent = "Guardado";
+      }
+      renderNotesList();
+    }, 500);
+  }
+  async function deleteActiveNote() {
+    if (!activeNoteId) return;
+    const idx = notesList.findIndex((n) => n.id === activeNoteId);
+    if (idx === -1) return;
+    if (!window.confirm("¿Eliminar esta página de notas? No se puede deshacer.")) return;
+    if (sb && typeof activeNoteId === "number") {
+      try { await sb.from("admin_notes").delete().eq("id", activeNoteId); }
+      catch (e) { console.warn("⚠️ Error eliminando nota:", e); }
+    }
+    notesList.splice(idx, 1);
+    persistNotesLocal();
+    activeNoteId = notesList.length ? notesList[0].id : null;
+    renderNotesList();
+    renderNoteEditor();
+    refreshPublicNoticesDot();
+    if (!activeNoteId) createNote();
+  }
+  async function toggleNoteVisibility() {
+    const note = notesList.find((n) => n.id === activeNoteId);
+    if (!note) return;
+    note.isPublic = $("#noteVisibilityInput").checked;
+    if (sb && typeof note.id === "number") {
+      try {
+        const { error } = await sb.from("admin_notes").update({ is_public: note.isPublic }).eq("id", note.id);
+        if (error) { console.warn("⚠️ Error guardando visibilidad:", error); toast("⚠️ No se pudo guardar la visibilidad"); }
+      } catch (e) { console.warn("⚠️ Error guardando visibilidad:", e); }
+    } else {
+      persistNotesLocal();
+    }
+    renderNotesList();
+    refreshPublicNoticesDot();
+    toast(note.isPublic ? `"${note.title}" ahora es visible para todos` : `"${note.title}" ahora es privada`);
+  }
+  function renderNotesList() {
+    const ul = $("#notesPageList");
+    if (!ul) return;
+    ul.innerHTML = "";
+    notesList.forEach((n) => {
+      const li = document.createElement("li");
+      li.className = "notes-app__page" + (n.id === activeNoteId ? " is-active" : "");
+      li.innerHTML = `<span class="notes-app__page-title">${n.isPublic ? "🌐 " : ""}${escapeHtml(n.title || "Sin título")}</span>`;
+      li.addEventListener("click", () => openNote(n.id));
+      ul.appendChild(li);
+    });
+  }
+  function openNote(id) {
+    activeNoteId = id;
+    renderNotesList();
+    renderNoteEditor();
+  }
+  function renderNoteEditor() {
+    const note = notesList.find((n) => n.id === activeNoteId);
+    const titleInp = $("#noteTitleInput");
+    const contentInp = $("#noteContentInput");
+    const delBtn = $("#btnDeleteNote");
+    const tag = $("#noteSavedTag");
+    const visInp = $("#noteVisibilityInput");
+    if (!note) {
+      if (titleInp) { titleInp.value = ""; titleInp.disabled = true; }
+      if (contentInp) { contentInp.value = ""; contentInp.disabled = true; }
+      if (delBtn) delBtn.hidden = true;
+      if (visInp) visInp.disabled = true;
+      return;
+    }
+    if (titleInp) { titleInp.disabled = false; titleInp.value = note.title; }
+    if (contentInp) { contentInp.disabled = false; contentInp.value = note.content; }
+    if (delBtn) delBtn.hidden = false;
+    if (visInp) { visInp.disabled = false; visInp.checked = !!note.isPublic; }
+    if (tag) tag.textContent = "Guardado";
+  }
+  async function openNotesApp() {
+    $("#notesBackdrop").hidden = false;
+    await loadNotes();
+    if (!notesList.length) { await createNote(); return; }
+    if (!activeNoteId || !notesList.some((n) => n.id === activeNoteId)) activeNoteId = notesList[0].id;
+    renderNotesList();
+    renderNoteEditor();
+  }
+  function closeNotesApp() { $("#notesBackdrop").hidden = true; }
+
+  /* ===== Avisos públicos (lo que el admin marcó "Visible para todos") ===== */
+  async function loadPublicNotices() {
+    if (!sb) return [];
+    try {
+      const { data, error } = await sb.from("admin_notes").select("id,title,content,position").eq("is_public", true).order("position").order("id");
+      if (error) { console.warn("⚠️ Error cargando avisos públicos:", error); return []; }
+      return data || [];
+    } catch (e) { console.warn("⚠️ Error cargando avisos públicos:", e); return []; }
+  }
+  function renderPublicNotices(items) {
+    const list = $("#publicNoticesList");
+    const empty = $("#publicNoticesEmpty");
+    if (!list || !empty) return;
+    list.innerHTML = "";
+    if (!items.length) { empty.hidden = false; return; }
+    empty.hidden = true;
+    items.forEach((n) => {
+      const div = document.createElement("div");
+      div.className = "notice-modal__item";
+      div.innerHTML = `<div class="notice-modal__item-title">${escapeHtml(n.title || "Aviso")}</div>` +
+        `<div class="notice-modal__item-body">${escapeHtml(n.content || "")}</div>`;
+      list.appendChild(div);
+    });
+  }
+  async function openPublicNotices() {
+    $("#publicNoticesBackdrop").hidden = false;
+    renderPublicNotices(await loadPublicNotices());
+  }
+  function closePublicNotices() { $("#publicNoticesBackdrop").hidden = true; }
+  async function refreshPublicNoticesDot() {
+    const dot = $("#publicNoticesDot");
+    if (!dot) return;
+    const items = await loadPublicNotices();
+    dot.hidden = items.length === 0;
+  }
+  function subscribePublicNoticesRealtime() {
+    if (!sb) return;
+    try {
+      sb.channel("admin-notes-realtime")
+        .on("postgres_changes", { event: "*", schema: "public", table: "admin_notes" }, () => {
+          refreshPublicNoticesDot();
+          if (!$("#publicNoticesBackdrop").hidden) openPublicNotices();
+        })
+        .subscribe();
+    } catch (e) {}
+  }
+
+  const btnPublicNotices = $("#btnPublicNotices");
+  if (btnPublicNotices) btnPublicNotices.addEventListener("click", openPublicNotices);
+  const btnClosePublicNotices = $("#btnClosePublicNotices");
+  if (btnClosePublicNotices) btnClosePublicNotices.addEventListener("click", closePublicNotices);
+  const publicNoticesBackdrop = $("#publicNoticesBackdrop");
+  if (publicNoticesBackdrop) publicNoticesBackdrop.addEventListener("click", (e) => { if (e.target === e.currentTarget) closePublicNotices(); });
+
+  const btnOpenNotes = $("#btnOpenNotes");
+  if (btnOpenNotes) btnOpenNotes.addEventListener("click", openNotesApp);
+  const btnCloseNotes = $("#btnCloseNotes");
+  if (btnCloseNotes) btnCloseNotes.addEventListener("click", closeNotesApp);
+  const noteVisibilityInput = $("#noteVisibilityInput");
+  if (noteVisibilityInput) noteVisibilityInput.addEventListener("change", toggleNoteVisibility);
+  const btnBackToPanel = $("#btnBackToPanel");
+  if (btnBackToPanel) btnBackToPanel.addEventListener("click", closeNotesApp);
+  const btnNewNote = $("#btnNewNote");
+  if (btnNewNote) btnNewNote.addEventListener("click", createNote);
+  const btnDeleteNote = $("#btnDeleteNote");
+  if (btnDeleteNote) btnDeleteNote.addEventListener("click", deleteActiveNote);
+  const noteTitleInput = $("#noteTitleInput");
+  if (noteTitleInput) noteTitleInput.addEventListener("input", saveActiveNote);
+  const noteContentInput = $("#noteContentInput");
+  if (noteContentInput) noteContentInput.addEventListener("input", saveActiveNote);
+  const notesBackdrop = $("#notesBackdrop");
+  if (notesBackdrop) notesBackdrop.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeNotesApp(); });
+
+  /* ---------------------------------------------------------------
      17. INICIALIZACIÓN
   ----------------------------------------------------------------- */
   async function initializeApp() {
     await loadManualRate();
     subscribeRateRealtime();
     recomputeRate();
-    if (sb) { await loadStateFromSupabase(); subscribeRealtime(); }
+    if (sb) { await loadStateFromSupabase(); subscribeRealtime(); sweepExpiredReservations(); setInterval(sweepExpiredReservations, 60000); }
+    refreshPublicNoticesDot();
+    subscribePublicNoticesRealtime();
     Object.keys(PROJECTS).forEach((pk) => {
       const el = viewportEl(pk);
       if (el) el.style.aspectRatio = PROJECTS[pk].imgW + " / " + PROJECTS[pk].imgH;

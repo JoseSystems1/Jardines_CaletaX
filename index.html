@@ -38,6 +38,11 @@
   </div>
 
   <div class="titleblock__stats" id="statsRow" aria-label="Resumen de disponibilidad">
+    <button class="titleblock__notices" id="btnPublicNotices" type="button" aria-label="Ver Re-Ventas">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span>Re-ventas</span>
+      <span class="titleblock__notices-dot" id="publicNoticesDot" hidden></span>
+    </button>
     <div class="stat">
       <span class="stat__value" id="statTotal">—</span>
       <span class="stat__label">Solares</span>
@@ -174,7 +179,10 @@
 <aside class="admin-panel" id="adminPanel" hidden aria-label="Panel de administración">
   <div class="admin-panel__head">
     <h2>Panel de administración</h2>
-    <button class="btn btn--icon" id="btnCloseAdmin" type="button" aria-label="Cerrar panel">✕</button>
+    <div class="admin-panel__head-actions">
+      <button class="btn btn--ghost btn--small" id="btnOpenNotes" type="button">📝 Notas</button>
+      <button class="btn btn--icon" id="btnCloseAdmin" type="button" aria-label="Cerrar panel">✕</button>
+    </div>
   </div>
 
   <div class="admin-panel__projecttag" id="adminProjectTag">Proyecto: Jardines de Caleta X</div>
@@ -216,6 +224,15 @@
       <button class="btn btn--primary btn--small" id="btnSaveRate" type="button">Fijar</button>
     </div>
     <p class="admin-rate__hint" id="rateHint"></p>
+  </div>
+
+  <!-- Auto-liberado de reservas: fijo en 72 horas (3 días), no editable -->
+  <div class="admin-rate admin-reservation" id="adminReservationBox">
+    <div class="admin-rate__head">
+      <span class="admin-rate__title">Auto-liberado de reservas</span>
+      <span class="admin-rate__eff">72 horas (3 días)</span>
+    </div>
+    <p class="admin-rate__hint">Al reservar un solar, empieza a contar desde ese momento. Si nadie lo marca como vendido dentro de 72 horas, se libera solo y vuelve a Disponible. Este plazo es fijo.</p>
   </div>
 
   <div class="admin-panel__foot">
@@ -298,6 +315,7 @@
         <input type="date" id="lotModalDateInput">
         <button type="button" class="btn btn--ghost btn--small" id="btnPrintLot" title="Imprimir esta ficha del solar">🖨 Imprimir</button>
       </div>
+      <p class="auto-release-hint" id="reservationExpiryHint" hidden></p>
 
       <label class="field-label" for="lotModalNote">Nota interna (solo admin)</label>
       <textarea id="lotModalNote" rows="2" placeholder="Ej. nombre del cliente, depósito, contacto…"></textarea>
@@ -347,6 +365,54 @@
       <button type="button" class="btn btn--ghost" id="btnDocEditCancel">Cancelar</button>
       <button type="button" class="btn btn--primary" id="btnDocEditSave">Guardar documentación</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ AVISOS PÚBLICOS (lo que el admin marcó como "Visible para todos") ============ -->
+<div class="modal-backdrop" id="publicNoticesBackdrop" hidden>
+  <div class="modal notice-modal" role="dialog" aria-modal="true" aria-labelledby="noticeModalTitle">
+    <button type="button" class="modal__close" id="btnClosePublicNotices" aria-label="Cerrar">✕</button>
+    <span class="modal__eyebrow">ADONEL SERVICES, SRL</span>
+    <h2 id="noticeModalTitle">Re-Ventas 📢</h2>
+    <div class="notice-modal__list" id="publicNoticesList"></div>
+    <p class="notice-modal__empty" id="publicNoticesEmpty" hidden>No hay actualizaciones por el momento.</p>
+  </div>
+</div>
+
+<!-- ============ NOTAS (blog de notas internas del admin) ============ -->
+<div class="modal-backdrop notes-backdrop" id="notesBackdrop" hidden>
+  <div class="notes-app" role="dialog" aria-modal="true" aria-labelledby="noteTitleInput">
+    <aside class="notes-app__brand">
+      <div class="notes-app__brand-head">
+        <div class="notes-app__brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="30" height="30">
+            <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M20 4 L20 12 M20 28 L20 36 M4 20 L12 20 M28 20 L36 20" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="20" cy="20" r="4.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="notes-app__brand-text">
+          <span class="notes-app__brand-name">ADONEL SERVICES</span>
+          <span class="notes-app__brand-tag">SRL · Notas internas</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn--primary btn--block notes-app__new" id="btnNewNote">+ Nueva página</button>
+      <ul class="notes-app__pages" id="notesPageList"></ul>
+      <button type="button" class="notes-app__foot" id="btnBackToPanel">← Volver atrás</button>
+    </aside>
+    <section class="notes-app__editor">
+      <div class="notes-app__editor-bar">
+        <input type="text" id="noteTitleInput" class="notes-app__title-input" placeholder="Título de la página">
+        <span class="notes-app__saved" id="noteSavedTag">Guardado</span>
+        <button type="button" class="notes-app__close" id="btnCloseNotes" aria-label="Cerrar">✕</button>
+        <label class="notes-app__visibility" id="noteVisibilityToggle">
+          <input type="checkbox" id="noteVisibilityInput">
+          <span>Visible para todos</span>
+        </label>
+        <button type="button" class="btn btn--ghost btn--small" id="btnDeleteNote">Eliminar página</button>
+      </div>
+      <textarea id="noteContentInput" class="notes-app__content" placeholder="Escribe aquí tus notas…"></textarea>
+    </section>
   </div>
 </div>
 
