@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=23">
+<link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
 
@@ -22,7 +22,7 @@
       </svg>
     </div>
     <div class="titleblock__text">
-      <h1 id="projectTitle">Urbanización Jardines de Caleta&nbsp;X</h1>
+      <h1 id="projectTitle">Urbanización Jardines de Caleta&nbsp;XI</h1>
       <p id="projectSubtitle">La Romana, República Dominicana — Plano general de distribución de solares</p>
     </div>
   </div>
@@ -38,9 +38,9 @@
   </div>
 
   <div class="titleblock__stats" id="statsRow" aria-label="Resumen de disponibilidad">
-    <button class="titleblock__notices" id="btnPublicNotices" type="button" aria-label="Ver Re-Ventas">
+    <button class="titleblock__notices" id="btnPublicNotices" type="button" aria-label="Ver avisos">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-      <span>Re-ventas</span>
+      <span>Avisos</span>
       <span class="titleblock__notices-dot" id="publicNoticesDot" hidden></span>
     </button>
     <div class="stat">
@@ -71,11 +71,11 @@
 
 <!-- ============ PESTAÑAS DE PROYECTO ============ -->
 <nav class="project-tabs" id="projectTabs" aria-label="Proyectos">
-  <button class="project-tab" data-project="xi" type="button">
+  <button class="project-tab is-active" data-project="xi" type="button">
     <span class="project-tab__name">Jardines de Caleta XI</span>
     <span class="project-tab__meta" id="tabMetaXi">467 solares</span>
   </button>
-  <button class="project-tab is-active" data-project="x" type="button">
+  <button class="project-tab" data-project="x" type="button">
     <span class="project-tab__name">Jardines de Caleta X</span>
     <span class="project-tab__meta" id="tabMetaX">156 solares</span>
   </button>
@@ -144,10 +144,10 @@
       <svg id="iconCollapse" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
     </button>
 
-    <div class="map-viewport" id="mapViewport-x" role="img" aria-label="Plano interactivo de Jardines de Caleta X"></div>
+    <div class="map-viewport" id="mapViewport-x" role="img" aria-label="Plano interactivo de Jardines de Caleta X" style="display:none"></div>
     <div class="map-viewport" id="mapViewport-ix" role="img" aria-label="Plano interactivo de Jardines de Caleta IX" style="display:none"></div>
     <div class="map-viewport" id="mapViewport-ix2" role="img" aria-label="Plano interactivo de Jardines de Caleta IX Etapa 2" style="display:none"></div>
-    <div class="map-viewport" id="mapViewport-xi" role="img" aria-label="Plano interactivo de Jardines de Caleta XI" style="display:none"></div>
+    <div class="map-viewport" id="mapViewport-xi" role="img" aria-label="Plano interactivo de Jardines de Caleta XI"></div>
 
     <p class="map-panel__hint">Arrastra para mover el plano · rueda del mouse o pellizco para hacer zoom · doble clic/toque para acercar</p>
   </section>
@@ -373,9 +373,9 @@
   <div class="modal notice-modal" role="dialog" aria-modal="true" aria-labelledby="noticeModalTitle">
     <button type="button" class="modal__close" id="btnClosePublicNotices" aria-label="Cerrar">✕</button>
     <span class="modal__eyebrow">ADONEL SERVICES, SRL</span>
-    <h2 id="noticeModalTitle">Re-Ventas 📢</h2>
+    <h2 id="noticeModalTitle">Avisos</h2>
     <div class="notice-modal__list" id="publicNoticesList"></div>
-    <p class="notice-modal__empty" id="publicNoticesEmpty" hidden>No hay actualizaciones por el momento.</p>
+    <p class="notice-modal__empty" id="publicNoticesEmpty" hidden>No hay avisos por el momento.</p>
   </div>
 </div>
 
@@ -398,7 +398,7 @@
       </div>
       <button type="button" class="btn btn--primary btn--block notes-app__new" id="btnNewNote">+ Nueva página</button>
       <ul class="notes-app__pages" id="notesPageList"></ul>
-      <button type="button" class="notes-app__foot" id="btnBackToPanel">← Volver atrás</button>
+      <button type="button" class="notes-app__foot" id="btnBackToPanel">← Volver al panel de administración</button>
     </aside>
     <section class="notes-app__editor">
       <div class="notes-app__editor-bar">
@@ -418,6 +418,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=58"></script>
+<script src="script.js?v=59"></script>
 </body>
 </html>

@@ -186,7 +186,7 @@
       dzi: "assets/dzi-xi/plano.dzi", imgW: 13332, imgH: 15098, lots: LOTS_BASE_XI },
   };
 
-  let activeProject = "x";
+  let activeProject = "xi";
   function P() { return PROJECTS[activeProject]; }
 
   /* ---------------------------------------------------------------
@@ -721,7 +721,7 @@
     ix2:{ ready: false, built: false, W: PROJECTS.ix2.imgW, H: PROJECTS.ix2.imgH },
     xi: { ready: false, built: false, W: PROJECTS.xi.imgW, H: PROJECTS.xi.imgH },
   };
-  let IMG_W = PROJECTS.x.imgW, IMG_H = PROJECTS.x.imgH;
+  let IMG_W = PROJECTS.xi.imgW, IMG_H = PROJECTS.xi.imgH;
 
   function viewportEl(pk) { return $("#mapViewport-" + pk); }
   function activeViewportEl() { return viewportEl(activeProject); }
