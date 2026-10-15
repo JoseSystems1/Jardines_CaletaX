@@ -943,8 +943,8 @@
       reservedRow.hidden = false;
     } else { reservedRow.hidden = true; }
 
-    // Documentos: SOLO en Caleta IX (jardines 9) — prueba temporal.
-    const docsEnabled = (activeProject === "ix");
+    // Documentos (plano catastral y título): Caleta IX y Caleta X.
+    const docsEnabled = (activeProject === "ix" || activeProject === "x");
     if (docsEnabled) {
       const planoUrl = safeDocUrl(lot.planoUrl);
       const tituloUrl = safeDocUrl(lot.tituloUrl);
@@ -952,7 +952,7 @@
       setupDocButton($("#btnDocTitulo"), tituloUrl);
     }
     $("#lotModalDocs").hidden = !docsEnabled;
-    // Botón "Documentación" (solo admin, y solo en Caleta IX)
+    // Botón "Documentación" (solo admin, y solo en Caleta IX y X)
     $("#btnDocEdit").hidden = !(isAdmin && docsEnabled);
 
     const adminBox = $("#lotModalAdminControls");
