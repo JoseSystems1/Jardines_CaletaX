@@ -171,7 +171,42 @@
     [463,371.1],[464,370.57],[465,370.03],[466,369.49],[467,368.96],
   ];
 
+  const LOTS_BASE_XII = [
+    [1,630],[2,196.46],[3,315.25],[4,316.69],[5,313.99],[6,311.29],[7,308.59],
+    [8,305.89],[9,303.18],[10,300.48],[11,297.78],[12,295.08],[13,292.38],
+    [14,280.84],[15,275.71],[16,276],[17,276],[18,276],[19,276],[20,276],[21,276],
+    [22,276],[23,276],[24,276],[25,276],[26,292.72],[27,326.08],[28,240],[29,240],
+    [30,240],[31,240],[32,240],[33,240],[34,240],[35,240],[36,240],[37,260.01],
+    [38,315.06],[39,268.28],[40,270.65],[41,279.61],[42,286.37],[43,293.14],
+    [44,299.9],[45,306.66],[46,313.43],[47,320.19],[48,341.01],[49,273.5],
+    [50,258.96],[51,255.78],[52,252.61],[53,250.02],[54,247.82],[55,245.62],
+    [56,243.42],[57,241.78],[58,244.79],[59,248.7],[60,265.46],[61,256.52],
+    [62,266.26],[63,258.62],[64,243.48],[65,237.77],[66,260.52],[67,267.21],
+    [68,272.6],[69,277.51],[70,276.15],[71,272.76],[72,285],[73,264],[74,264],
+    [75,264],[76,264],[77,264],[78,264],[79,264],[80,264],[81,264],[82,305.79],
+    [83,291.07],[84,264],[85,264],[86,264],[87,264],[88,264],[89,264],[90,264],
+    [91,264],[92,264],[93,285],[94,245],[95,240],[96,240],[97,240],[98,240],
+    [99,240],[100,240],[101,240],[102,240],[103,240],[104,261.67],[105,249.5],
+    [106,240],[107,240],[108,240],[109,240],[110,240],[111,240],[112,240],
+    [113,240],[114,240],[115,245],[116,280],[117,230],[118,230],[119,230],
+    [120,230],[121,230],[122,230],[123,230],[124,230],[125,230],[126,287.19],
+    [127,275.02],[128,230],[129,230],[130,230],[131,230],[132,230],[133,230],
+    [134,230],[135,230],[136,230],[137,280],[138,300],[139,220],[140,220],
+    [141,220],[142,220],[143,220],[144,220],[145,220],[146,220],[147,220],
+    [148,327.71],[149,315.54],[150,220],[151,220],[152,220],[153,220],[154,220],
+    [155,220],[156,220],[157,220],[158,220],[159,300],[160,280],[161,200.09],
+    [162,199.91],[163,200],[164,200],[165,200],[166,200],[167,200],[168,200],
+    [169,200],[170,200],[171,298.22],[172,286.06],[173,200],[174,200],[175,200],
+    [176,200],[177,200],[178,200],[179,200],[180,200],[181,200],[182,200],
+    [183,280],[184,217.19],[185,202.62],[186,208.48],[187,204],[188,209.31],
+    [189,214.63],[190,219.94],[191,225.26],[192,230.57],[193,235.88],[194,241.2],
+    [195,246.51],[196,251.83],[197,283.15],[198,289.58],[199,316.1],
+  ];
+
   const PROJECTS = {
+    xii: { key: "xii", title: "Urbanización Jardines de Caleta\u00A0XII",
+      subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
+      dzi: "assets/dzi-xii/plano.dzi", imgW: 14756, imgH: 8619, lots: LOTS_BASE_XII },
     x: { key: "x", title: "Urbanización Jardines de Caleta\u00A0X",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
       dzi: "assets/dzi/plano.dzi", imgW: 10960, imgH: 6476, lots: LOTS_BASE_X },
@@ -186,7 +221,7 @@
       dzi: "assets/dzi-xi/plano.dzi", imgW: 13332, imgH: 15098, lots: LOTS_BASE_XI },
   };
 
-  let activeProject = "xi";
+  let activeProject = "xii";
   function P() { return PROJECTS[activeProject]; }
 
   /* ---------------------------------------------------------------
@@ -216,7 +251,7 @@
     } catch (e) { console.warn("No se pudo leer localStorage:", projKey, e); return defaultState(projKey); }
   }
 
-  const states = { x: defaultState("x"), ix: defaultState("ix"), ix2: defaultState("ix2"), xi: defaultState("xi") };
+  const states = { x: defaultState("x"), ix: defaultState("ix"), ix2: defaultState("ix2"), xi: defaultState("xi"), xii: defaultState("xii") };
   function currentState() { return states[activeProject]; }
 
   function persistLocal(projKey) {
@@ -489,6 +524,7 @@
     $("#tabMetaIx").textContent = tabMeta("ix");
     const m2 = $("#tabMetaIx2"); if (m2) m2.textContent = tabMeta("ix2");
     const mxi = $("#tabMetaXi"); if (mxi) mxi.textContent = tabMeta("xi");
+    const mxii = $("#tabMetaXii"); if (mxii) mxii.textContent = tabMeta("xii");
   }
 
   /* ---------------------------------------------------------------
@@ -720,8 +756,9 @@
     ix: { ready: false, built: false, W: PROJECTS.ix.imgW, H: PROJECTS.ix.imgH },
     ix2:{ ready: false, built: false, W: PROJECTS.ix2.imgW, H: PROJECTS.ix2.imgH },
     xi: { ready: false, built: false, W: PROJECTS.xi.imgW, H: PROJECTS.xi.imgH },
+    xii:{ ready: false, built: false, W: PROJECTS.xii.imgW, H: PROJECTS.xii.imgH },
   };
-  let IMG_W = PROJECTS.xi.imgW, IMG_H = PROJECTS.xi.imgH;
+  let IMG_W = PROJECTS.xii.imgW, IMG_H = PROJECTS.xii.imgH;
 
   function viewportEl(pk) { return $("#mapViewport-" + pk); }
   function activeViewportEl() { return viewportEl(activeProject); }
@@ -750,8 +787,8 @@
     OSD[pk] = v;
     v.addHandler("open-failed", (e) => {
       VW[pk].ready = false;
-      const nombre = pk === "ix" ? "Caleta IX" : (pk === "ix2" ? "Caleta IX Etapa 2" : (pk === "xi" ? "Caleta XI" : "Caleta X"));
-      const carpeta = pk === "ix" ? "dzi-ix" : (pk === "ix2" ? "dzi-ix2" : (pk === "xi" ? "dzi-xi" : "dzi"));
+      const nombre = pk === "xii" ? "Caleta XII" : pk === "ix" ? "Caleta IX" : (pk === "ix2" ? "Caleta IX Etapa 2" : (pk === "xi" ? "Caleta XI" : "Caleta X"));
+      const carpeta = pk === "xii" ? "dzi-xii" : pk === "ix" ? "dzi-ix" : (pk === "ix2" ? "dzi-ix2" : (pk === "xi" ? "dzi-xi" : "dzi"));
       toast("⚠️ No se pudo cargar el plano de " + nombre + ". Revisa que la carpeta 'assets/" + carpeta + "' esté subida.");
     });
     v.addHandler("zoom", () => {
@@ -1689,6 +1726,7 @@
     repaintMarkers("ix");
     repaintMarkers("ix2");
     repaintMarkers("xi");
+    repaintMarkers("xii");
     console.log("✅ === APP LISTA ===");
   }
 

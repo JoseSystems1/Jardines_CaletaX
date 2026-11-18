@@ -38,9 +38,9 @@
   </div>
 
   <div class="titleblock__stats" id="statsRow" aria-label="Resumen de disponibilidad">
-    <button class="titleblock__notices" id="btnPublicNotices" type="button" aria-label="Ver Re-ventas">
+    <button class="titleblock__notices" id="btnPublicNotices" type="button" aria-label="Ver avisos">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-      <span>Re-Ventas</span>
+      <span>Avisos</span>
       <span class="titleblock__notices-dot" id="publicNoticesDot" hidden></span>
     </button>
     <div class="stat">
@@ -71,7 +71,11 @@
 
 <!-- ============ PESTAÑAS DE PROYECTO ============ -->
 <nav class="project-tabs" id="projectTabs" aria-label="Proyectos">
-  <button class="project-tab is-active" data-project="xi" type="button">
+  <button class="project-tab is-active" data-project="xii" type="button">
+    <span class="project-tab__name">Jardines de Caleta XII</span>
+    <span class="project-tab__meta" id="tabMetaXii">199 solares</span>
+  </button>
+  <button class="project-tab" data-project="xi" type="button">
     <span class="project-tab__name">Jardines de Caleta XI</span>
     <span class="project-tab__meta" id="tabMetaXi">467 solares</span>
   </button>
@@ -147,7 +151,8 @@
     <div class="map-viewport" id="mapViewport-x" role="img" aria-label="Plano interactivo de Jardines de Caleta X" style="display:none"></div>
     <div class="map-viewport" id="mapViewport-ix" role="img" aria-label="Plano interactivo de Jardines de Caleta IX" style="display:none"></div>
     <div class="map-viewport" id="mapViewport-ix2" role="img" aria-label="Plano interactivo de Jardines de Caleta IX Etapa 2" style="display:none"></div>
-    <div class="map-viewport" id="mapViewport-xi" role="img" aria-label="Plano interactivo de Jardines de Caleta XI"></div>
+    <div class="map-viewport" id="mapViewport-xi" role="img" aria-label="Plano interactivo de Jardines de Caleta XI" style="display:none"></div>
+    <div class="map-viewport" id="mapViewport-xii" role="img" aria-label="Plano interactivo de Jardines de Caleta XII"></div>
 
     <p class="map-panel__hint">Arrastra para mover el plano · rueda del mouse o pellizco para hacer zoom · doble clic/toque para acercar</p>
   </section>
@@ -373,9 +378,9 @@
   <div class="modal notice-modal" role="dialog" aria-modal="true" aria-labelledby="noticeModalTitle">
     <button type="button" class="modal__close" id="btnClosePublicNotices" aria-label="Cerrar">✕</button>
     <span class="modal__eyebrow">ADONEL SERVICES, SRL</span>
-    <h2 id="noticeModalTitle">Re-Ventas</h2>
+    <h2 id="noticeModalTitle">Avisos</h2>
     <div class="notice-modal__list" id="publicNoticesList"></div>
-    <p class="notice-modal__empty" id="publicNoticesEmpty" hidden>No hay Re-ventas por el momento.</p>
+    <p class="notice-modal__empty" id="publicNoticesEmpty" hidden>No hay avisos por el momento.</p>
   </div>
 </div>
 
@@ -418,6 +423,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/openseadragon@6.0.2/build/openseadragon/openseadragon.min.js"></script>
-<script src="script.js?v=60"></script>
+<script src="script.js?v=61"></script>
 </body>
 </html>
