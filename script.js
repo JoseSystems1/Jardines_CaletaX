@@ -203,7 +203,19 @@
     [195,247],[196,252],[197,283],[198,290],[199,316],
   ];
 
+  const LOTS_BASE_XI2 = [
+    [468,361],[469,327],[470,325],[471,323],[472,321],[473,319],[474,318],
+    [475,318],[476,317],[477,317],[478,293],[479,323],[480,266],[481,240],
+    [482,260],[483,260],[484,260],[485,260],[486,260],[487,260],[488,260],
+    [489,260],[490,260],[491,265],[492,274],[493,240],[494,240],[495,240],
+    [496,240],[497,240],[498,240],[499,240],[500,240],[501,240],[502,240],
+    [503,240],[504,360],
+  ];
+
   const PROJECTS = {
+    xi2: { key: "xi2", title: "Urbanización Jardines de Caleta\u00A0XI — Segunda Etapa",
+      subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
+      dzi: "assets/dzi-xi2/plano.dzi", imgW: 15926, imgH: 8159, lots: LOTS_BASE_XI2 },
     xii: { key: "xii", title: "Urbanización Jardines de Caleta\u00A0XII",
       subtitle: "La Romana, República Dominicana — Plano general de distribución de solares",
       dzi: "assets/dzi-xii/plano.dzi", imgW: 14756, imgH: 8619, lots: LOTS_BASE_XII },
@@ -251,7 +263,7 @@
     } catch (e) { console.warn("No se pudo leer localStorage:", projKey, e); return defaultState(projKey); }
   }
 
-  const states = { x: defaultState("x"), ix: defaultState("ix"), ix2: defaultState("ix2"), xi: defaultState("xi"), xii: defaultState("xii") };
+  const states = { x: defaultState("x"), ix: defaultState("ix"), ix2: defaultState("ix2"), xi: defaultState("xi"), xii: defaultState("xii"), xi2: defaultState("xi2") };
   function currentState() { return states[activeProject]; }
 
   function persistLocal(projKey) {
@@ -533,6 +545,7 @@
     $("#tabMetaIx").textContent = tabMeta("ix");
     const m2 = $("#tabMetaIx2"); if (m2) m2.textContent = tabMeta("ix2");
     const mxi = $("#tabMetaXi"); if (mxi) mxi.textContent = tabMeta("xi");
+    const mxi2 = $("#tabMetaXi2"); if (mxi2) mxi2.textContent = tabMeta("xi2");
     const mxii = $("#tabMetaXii"); if (mxii) mxii.textContent = tabMeta("xii");
   }
 
@@ -768,6 +781,7 @@
     ix: { ready: false, built: false, W: PROJECTS.ix.imgW, H: PROJECTS.ix.imgH },
     ix2:{ ready: false, built: false, W: PROJECTS.ix2.imgW, H: PROJECTS.ix2.imgH },
     xi: { ready: false, built: false, W: PROJECTS.xi.imgW, H: PROJECTS.xi.imgH },
+    xi2:{ ready: false, built: false, W: PROJECTS.xi2.imgW, H: PROJECTS.xi2.imgH },
     xii:{ ready: false, built: false, W: PROJECTS.xii.imgW, H: PROJECTS.xii.imgH },
   };
   let IMG_W = PROJECTS.xii.imgW, IMG_H = PROJECTS.xii.imgH;
@@ -799,8 +813,8 @@
     OSD[pk] = v;
     v.addHandler("open-failed", (e) => {
       VW[pk].ready = false;
-      const nombre = pk === "xii" ? "Caleta XII" : pk === "ix" ? "Caleta IX" : (pk === "ix2" ? "Caleta IX Etapa 2" : (pk === "xi" ? "Caleta XI" : "Caleta X"));
-      const carpeta = pk === "xii" ? "dzi-xii" : pk === "ix" ? "dzi-ix" : (pk === "ix2" ? "dzi-ix2" : (pk === "xi" ? "dzi-xi" : "dzi"));
+      const nombre = pk === "xi2" ? "Caleta XI Segunda Etapa" : pk === "xii" ? "Caleta XII" : pk === "ix" ? "Caleta IX" : (pk === "ix2" ? "Caleta IX Etapa 2" : (pk === "xi" ? "Caleta XI" : "Caleta X"));
+      const carpeta = pk === "xi2" ? "dzi-xi2" : pk === "xii" ? "dzi-xii" : pk === "ix" ? "dzi-ix" : (pk === "ix2" ? "dzi-ix2" : (pk === "xi" ? "dzi-xi" : "dzi"));
       toast("⚠️ No se pudo cargar el plano de " + nombre + ". Revisa que la carpeta 'assets/" + carpeta + "' esté subida.");
     });
     v.addHandler("zoom", () => {
@@ -1739,6 +1753,7 @@
     repaintMarkers("ix2");
     repaintMarkers("xi");
     repaintMarkers("xii");
+    repaintMarkers("xi2");
     console.log("✅ === APP LISTA ===");
   }
 
