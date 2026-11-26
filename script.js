@@ -1033,7 +1033,10 @@
       $("#btnRemoveMarker").hidden = !hasPin;
       const expHint = $("#reservationExpiryHint");
       if (expHint) {
-        if (lot.status === "reservado" && lot.reservedAt) {
+        if (lot.status === "reservado" && reservationNeverExpires(activeProject, lot.id)) {
+          expHint.textContent = "Reserva sin vencimiento: se mantiene hasta que la quites manualmente.";
+          expHint.hidden = false;
+        } else if (lot.status === "reservado" && lot.reservedAt) {
           const expiry = new Date(new Date(lot.reservedAt).getTime() + RESERVATION_DAYS * 24 * 3600 * 1000);
           expHint.textContent = "Se liberará automáticamente el " +
             expiry.toLocaleString("es-DO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) +
@@ -1361,6 +1364,12 @@
   ----------------------------------------------------------------- */
   const RESERVATION_DAYS = 3; // fijo — 72 horas
 
+  // Solares de Caleta XII (2 al 37) cuya reserva NO vence: se quitan solo a mano.
+  const NO_EXPIRY = { project: "xii", from: 2, to: 37 };
+  function reservationNeverExpires(pk, id) {
+    return pk === NO_EXPIRY.project && Number(id) >= NO_EXPIRY.from && Number(id) <= NO_EXPIRY.to;
+  }
+
   function sweepExpiredReservations() {
     if (!sb) return;
     const cutoffIso = new Date(Date.now() - RESERVATION_DAYS * 24 * 3600 * 1000).toISOString();
@@ -1368,6 +1377,8 @@
       .update({ status: "disponible", reserved_date: null, reserved_at: null, rate: null, updated_at: new Date().toISOString() })
       .eq("status", "reservado")
       .lte("reserved_at", cutoffIso)
+      // excluye de la liberación automática los solares 2 al 37 de Caleta XII
+      .or(`project.neq.${NO_EXPIRY.project},id.lt.${NO_EXPIRY.from},id.gt.${NO_EXPIRY.to}`)
       .then(({ error }) => { if (error) console.warn("⚠️ Error liberando reservas vencidas:", error); });
   }
 
